@@ -30,7 +30,7 @@ export interface EmotionalState {
 
 const API_URL = process.env.NODE_ENV === 'production' 
   ? '/api/chat'  // Use relative URL in production
-  : 'http://localhost:3000/api/chat'; // Update to match Vercel's development port
+  : 'http://localhost:3001/api/chat'; // Use port 3001 for development
 
 const MAX_RETRIES = 3;
 const RETRY_DELAY = 1000; // 1 second
