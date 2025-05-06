@@ -48,27 +48,7 @@ interface ChatRequest {
 
 async function handler(req: VercelRequest, res: VercelResponse) {
   try {
-    // Set CORS headers
-    res.setHeader('Access-Control-Allow-Origin', '*');
-    res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
-    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, Accept');
-    res.setHeader('Access-Control-Allow-Credentials', 'true');
-    res.setHeader('Access-Control-Max-Age', '86400'); // 24 hours
-
-    console.log('Received request:', {
-      method: req.method,
-      path: req.url,
-      headers: req.headers,
-      body: JSON.stringify(req.body, null, 2)
-    });
-
-    // Handle OPTIONS request first
-    if (req.method === 'OPTIONS') {
-      console.log('Handling OPTIONS request');
-      return res.status(200).end();
-    }
-
-    // Handle CORS
+    // Handle CORS first
     await new Promise((resolve, reject) => {
       corsMiddleware(req, res, (result: Error | undefined) => {
         if (result instanceof Error) {
@@ -79,12 +59,21 @@ async function handler(req: VercelRequest, res: VercelResponse) {
       });
     });
 
+    // Handle OPTIONS request
+    if (req.method === 'OPTIONS') {
+      console.log('Handling OPTIONS request');
+      return res.status(200).end();
+    }
+
     // Ensure only POST requests are allowed
     if (req.method !== 'POST') {
       console.error('Invalid method:', req.method);
       return res.status(405).json({ 
-        error: 'Method not allowed',
-        details: `Expected POST, got ${req.method}`
+        error: {
+          code: '405',
+          message: 'Method not allowed',
+          details: `Expected POST, got ${req.method}`
+        }
       });
     }
 
@@ -92,12 +81,50 @@ async function handler(req: VercelRequest, res: VercelResponse) {
     if (!req.body) {
       console.error('Missing request body');
       return res.status(400).json({
-        error: 'Bad request',
-        details: 'Request body is required'
+        error: {
+          code: '400',
+          message: 'Bad request',
+          details: 'Request body is required'
+        }
+      });
+    }
+
+    // Validate API key
+    if (!process.env.OPENAI_API_KEY) {
+      console.error('Missing OpenAI API key');
+      return res.status(500).json({
+        error: {
+          code: '500',
+          message: 'Server configuration error',
+          details: 'OpenAI API key is not configured'
+        }
       });
     }
 
     const { passenger, question, discoveredItems, dialogueHistory = [], emotionalState } = req.body as ChatRequest;
+
+    // Validate required fields
+    if (!passenger?.id || !passenger?.name || !passenger?.title || !passenger?.description || !passenger?.background) {
+      console.error('Invalid passenger data:', passenger);
+      return res.status(400).json({
+        error: {
+          code: '400',
+          message: 'Invalid passenger data',
+          details: 'Missing required passenger fields'
+        }
+      });
+    }
+
+    if (!question || typeof question !== 'string') {
+      console.error('Invalid question:', question);
+      return res.status(400).json({
+        error: {
+          code: '400',
+          message: 'Invalid question',
+          details: 'Question must be a non-empty string'
+        }
+      });
+    }
 
     console.log('Parsed request body:', {
       passenger: {
@@ -109,21 +136,6 @@ async function handler(req: VercelRequest, res: VercelResponse) {
       dialogueHistoryLength: dialogueHistory?.length,
       emotionalState
     });
-
-    if (!passenger || !question) {
-      console.error('Missing required fields:', { 
-        hasPassenger: !!passenger, 
-        hasQuestion: !!question,
-        body: JSON.stringify(req.body, null, 2)
-      });
-      return res.status(400).json({ 
-        error: 'Missing required fields',
-        details: {
-          hasPassenger: !!passenger,
-          hasQuestion: !!question
-        }
-      });
-    }
 
     const jsonSchema = {
       type: "object",
