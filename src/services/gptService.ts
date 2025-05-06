@@ -29,7 +29,7 @@ export interface EmotionalState {
 }
 
 const API_URL = process.env.NODE_ENV === 'production' 
-  ? 'https://meridian-teslap.vercel.app/api/chat'
+  ? '/api/chat'  // Use relative URL in production
   : 'http://localhost:3001/api/chat';
 
 const MAX_RETRIES = 3;
@@ -51,13 +51,16 @@ export async function generateCharacterResponse(
     question,
     discoveredItemsCount: discoveredItems.length,
     dialogueHistoryLength: dialogueHistory.length,
-    emotionalState
+    emotionalState,
+    apiUrl: API_URL,
+    environment: process.env.NODE_ENV
   });
 
   let lastError: Error | null = null;
   
   for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
     try {
+      console.log(`Attempt ${attempt}: Sending request to ${API_URL}`);
       const response = await fetch(API_URL, {
         method: 'POST',
         headers: {
@@ -73,14 +76,21 @@ export async function generateCharacterResponse(
       });
 
       if (!response.ok) {
-        const errorData = await response.json();
+        const errorData = await response.json().catch(() => ({ details: 'Failed to parse error response' }));
+        console.error('API Error:', {
+          status: response.status,
+          statusText: response.statusText,
+          errorData
+        });
         throw new Error(errorData.details || `HTTP error ${response.status}`);
       }
 
       const data = await response.json();
+      console.log('API Response:', data);
       
       // Validate response structure
       if (!data.response || typeof data.trustChange !== 'number') {
+        console.error('Invalid response structure:', data);
         throw new Error('Invalid response structure from server');
       }
 
@@ -93,8 +103,9 @@ export async function generateCharacterResponse(
       lastError = error instanceof Error ? error : new Error('Unknown error');
       
       if (attempt < MAX_RETRIES) {
-        console.log(`Retrying in ${RETRY_DELAY}ms...`);
-        await delay(RETRY_DELAY * attempt); // Exponential backoff
+        const delayTime = RETRY_DELAY * attempt;
+        console.log(`Retrying in ${delayTime}ms...`);
+        await delay(delayTime); // Exponential backoff
       }
     }
   }
