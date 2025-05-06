@@ -1,4 +1,4 @@
-import { VercelRequest, VercelResponse } from '@vercel/node';
+import type { VercelRequest, VercelResponse } from '@vercel/node';
 import OpenAI from 'openai';
 import cors from 'cors';
 
@@ -46,18 +46,13 @@ interface ChatRequest {
   };
 }
 
-async function handler(req: VercelRequest, res: VercelResponse) {
+export default async function handler(req: VercelRequest, res: VercelResponse) {
   try {
-    // Handle CORS first
-    await new Promise((resolve, reject) => {
-      corsMiddleware(req, res, (result: Error | undefined) => {
-        if (result instanceof Error) {
-          console.error('CORS error:', result);
-          return reject(result);
-        }
-        return resolve(result);
-      });
-    });
+    // Set CORS headers
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, Accept');
+    res.setHeader('Access-Control-Allow-Credentials', 'true');
 
     // Handle OPTIONS request
     if (req.method === 'OPTIONS') {
@@ -281,18 +276,13 @@ Do not mention or reference the JSON format, and never break character. When you
 
     return res.status(200).json(parsedResponse);
   } catch (error) {
-    console.error('Unhandled error:', error);
-    const errorResponse = {
+    console.error('Error in handler:', error);
+    return res.status(500).json({
       error: {
         code: '500',
-        message: error instanceof Error ? error.message : 'A server error has occurred',
-        details: process.env.NODE_ENV === 'development' ? error : undefined
+        message: 'A server error has occurred',
+        details: process.env.NODE_ENV === 'development' ? error instanceof Error ? error.message : String(error) : undefined
       }
-    };
-    console.error('Sending error response:', errorResponse);
-    return res.status(500).json(errorResponse);
+    });
   }
-}
-
-// Export the handler
-export default handler; 
+} 
