@@ -6,7 +6,8 @@ export default {
     "!./src/**/*.test.{js,ts,jsx,tsx}",
     "!./src/**/*.spec.{js,ts,jsx,tsx}",
     "!./src/**/*.stories.{js,ts,jsx,tsx}",
-    "!./src/**/*.d.ts"
+    "!./src/**/*.d.ts",
+    "!./node_modules/**/*"
   ],
   theme: {
     extend: {

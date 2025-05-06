@@ -85,12 +85,13 @@ interface ChatRequest {
   }>;
 }
 
-const chatHandler: RequestHandler = async (req: Request<{}, {}, ChatRequest>, res: Response) => {
+const chatHandler: RequestHandler = async (req: Request<{}, {}, ChatRequest>, res: Response): Promise<void> => {
   try {
     const { passenger, question, discoveredItems } = req.body;
 
     if (!passenger || !question) {
-      return res.status(400).json({ error: 'Missing required fields' });
+      res.status(400).json({ error: 'Missing required fields' });
+      return;
     }
 
     console.log('Processing request for:', {
