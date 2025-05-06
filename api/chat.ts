@@ -47,56 +47,56 @@ interface ChatRequest {
 }
 
 async function handler(req: VercelRequest, res: VercelResponse) {
-  // Set CORS headers
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, Accept');
-  res.setHeader('Access-Control-Allow-Credentials', 'true');
-  res.setHeader('Access-Control-Max-Age', '86400'); // 24 hours
-
-  console.log('Received request:', {
-    method: req.method,
-    path: req.url,
-    headers: req.headers,
-    body: JSON.stringify(req.body, null, 2)
-  });
-
-  // Handle OPTIONS request first
-  if (req.method === 'OPTIONS') {
-    console.log('Handling OPTIONS request');
-    return res.status(200).end();
-  }
-
-  // Handle CORS
-  await new Promise((resolve, reject) => {
-    corsMiddleware(req, res, (result: Error | undefined) => {
-      if (result instanceof Error) {
-        console.error('CORS error:', result);
-        return reject(result);
-      }
-      return resolve(result);
-    });
-  });
-
-  // Ensure only POST requests are allowed
-  if (req.method !== 'POST') {
-    console.error('Invalid method:', req.method);
-    return res.status(405).json({ 
-      error: 'Method not allowed',
-      details: `Expected POST, got ${req.method}`
-    });
-  }
-
-  // Validate request body
-  if (!req.body) {
-    console.error('Missing request body');
-    return res.status(400).json({
-      error: 'Bad request',
-      details: 'Request body is required'
-    });
-  }
-
   try {
+    // Set CORS headers
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, Accept');
+    res.setHeader('Access-Control-Allow-Credentials', 'true');
+    res.setHeader('Access-Control-Max-Age', '86400'); // 24 hours
+
+    console.log('Received request:', {
+      method: req.method,
+      path: req.url,
+      headers: req.headers,
+      body: JSON.stringify(req.body, null, 2)
+    });
+
+    // Handle OPTIONS request first
+    if (req.method === 'OPTIONS') {
+      console.log('Handling OPTIONS request');
+      return res.status(200).end();
+    }
+
+    // Handle CORS
+    await new Promise((resolve, reject) => {
+      corsMiddleware(req, res, (result: Error | undefined) => {
+        if (result instanceof Error) {
+          console.error('CORS error:', result);
+          return reject(result);
+        }
+        return resolve(result);
+      });
+    });
+
+    // Ensure only POST requests are allowed
+    if (req.method !== 'POST') {
+      console.error('Invalid method:', req.method);
+      return res.status(405).json({ 
+        error: 'Method not allowed',
+        details: `Expected POST, got ${req.method}`
+      });
+    }
+
+    // Validate request body
+    if (!req.body) {
+      console.error('Missing request body');
+      return res.status(400).json({
+        error: 'Bad request',
+        details: 'Request body is required'
+      });
+    }
+
     const { passenger, question, discoveredItems, dialogueHistory = [], emotionalState } = req.body as ChatRequest;
 
     console.log('Parsed request body:', {
@@ -269,24 +269,18 @@ Do not mention or reference the JSON format, and never break character. When you
 
     return res.status(200).json(parsedResponse);
   } catch (error) {
-    console.error('Error processing request:', error);
+    console.error('Unhandled error:', error);
     const errorResponse = {
-      error: 'Internal server error',
-      details: error instanceof Error ? error.message : 'Unknown error',
-      stack: process.env.NODE_ENV === 'development' ? (error instanceof Error ? error.stack : undefined) : undefined
+      error: {
+        code: '500',
+        message: error instanceof Error ? error.message : 'A server error has occurred',
+        details: process.env.NODE_ENV === 'development' ? error : undefined
+      }
     };
     console.error('Sending error response:', errorResponse);
     return res.status(500).json(errorResponse);
   }
 }
 
-// Add error handling middleware
-export const errorHandler = (err: any, req: VercelRequest, res: VercelResponse, next: any) => {
-  console.error('Unhandled error:', err);
-  res.status(500).json({
-    error: 'Internal server error',
-    details: err instanceof Error ? err.message : 'Unknown error'
-  });
-};
-
+// Export the handler
 export default handler; 
