@@ -1,46 +1,15 @@
 import express, { Request, Response, RequestHandler } from 'express';
 import cors from 'cors';
 import OpenAI from 'openai';
-import dotenv from 'dotenv';
-import { fileURLToPath } from 'url';
-import { dirname, join } from 'path';
-import fs from 'fs';
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
-
-// Load environment variables from .env file
-const envPath = join(__dirname, '..', '..', '.env');
-console.log('Looking for .env file at:', envPath);
-const result = dotenv.config({ path: envPath });
-
-if (result.error) {
-  console.error('\nError: Could not load .env file');
-  console.error('Please create a .env file in the project root with:');
-  console.error('\nOPENAI_API_KEY=your_api_key_here\n');
-  process.exit(1);
-}
-
-// Log environment variables (without exposing the API key)
-console.log('Environment loaded:', {
-  port: process.env.PORT || 3001,
-  hasApiKey: !!process.env.OPENAI_API_KEY
-});
-
-if (!process.env.OPENAI_API_KEY) {
-  console.error('\nError: Missing OPENAI_API_KEY in .env file');
-  console.error('Please add your OpenAI API key to the .env file:');
-  console.error('\nOPENAI_API_KEY=your_api_key_here\n');
-  process.exit(1);
-}
+import { config } from './config';
 
 const app = express();
 
 // Configure CORS
 app.use(cors({
-  origin: ['http://localhost:5173', 'https://meridian-teslap.vercel.app'],
-  methods: ['GET', 'POST'],
-  allowedHeaders: ['Content-Type', 'Authorization'],
+  origin: config.corsOrigins,
+  methods: ['GET', 'POST', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'Accept'],
   credentials: true
 }));
 
@@ -64,7 +33,7 @@ app.use((req, res, next) => {
 app.use(express.json());
 
 const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
+  apiKey: config.openaiApiKey,
 });
 
 interface ChatRequest {
@@ -100,8 +69,26 @@ const chatHandler: RequestHandler = async (req: Request<{}, {}, ChatRequest>, re
   try {
     const { passenger, question, discoveredItems, dialogueHistory = [], emotionalState } = req.body;
 
-    if (!passenger || !question) {
-      res.status(400).json({ error: 'Missing required fields' });
+    // Validate request body
+    if (!passenger?.id || !passenger?.name || !passenger?.title || !passenger?.description || !passenger?.background) {
+      res.status(400).json({
+        error: {
+          code: '400',
+          message: 'Invalid passenger data',
+          details: 'Missing required passenger fields'
+        }
+      });
+      return;
+    }
+
+    if (!question || typeof question !== 'string') {
+      res.status(400).json({
+        error: {
+          code: '400',
+          message: 'Invalid question',
+          details: 'Question must be a non-empty string'
+        }
+      });
       return;
     }
 
@@ -213,8 +200,8 @@ Do not mention or reference the JSON format, and never break character. When you
           content: prompt
         }
       ],
-      temperature: 0.9,
-      max_tokens: 500,
+      temperature: config.temperature,
+      max_tokens: config.maxTokens,
       response_format: { type: "json_object" }
     });
 
@@ -250,31 +237,20 @@ Do not mention or reference the JSON format, and never break character. When you
     console.log('Sending response:', parsedResponse);
     res.status(200).json(parsedResponse);
   } catch (error) {
-    console.error('Error in chat API:', error);
-    res.status(500).json({ 
-      error: 'Failed to generate response',
-      details: error instanceof Error ? error.message : 'Unknown error'
+    console.error('Error processing request:', error);
+    res.status(500).json({
+      error: {
+        code: '500',
+        message: error instanceof Error ? error.message : 'A server error has occurred',
+        details: config.nodeEnv === 'development' ? error : undefined
+      }
     });
   }
 };
 
 app.post('/api/chat', chatHandler);
 
-const PORT = process.env.PORT || 3001;
-const server = app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
-}).on('error', (err: NodeJS.ErrnoException) => {
-  if (err.code === 'EADDRINUSE') {
-    console.error(`\nError: Port ${PORT} is already in use.`);
-    console.error('Please either:');
-    console.error('1. Kill the process using this port:');
-    console.error(`   lsof -i :${PORT} | grep LISTEN`);
-    console.error(`   kill <PID>`);
-    console.error('2. Or use a different port in your .env file:');
-    console.error('   PORT=3002');
-    process.exit(1);
-  } else {
-    console.error('Error starting server:', err);
-    process.exit(1);
-  }
+const port = config.port;
+app.listen(port, () => {
+  console.log(`Server running on port ${port}`);
 }); 

@@ -5,12 +5,38 @@
 @tailwind utilities;
 
 :root {
+  /* Base colors */
   --background: #1a1a1a;
   --foreground: #e2e0dc;
   --primary: #2a2a2a;
   --accent: #e2e0dc;
+  
+  /* Semantic colors */
+  --text-primary: var(--foreground);
+  --text-secondary: #a0a0a0;
+  --border-color: #3a3a3a;
+  --hover-color: #3a3a3a;
+  --focus-ring: #4a4a4a;
+  
+  /* Spacing */
+  --spacing-xs: 0.25rem;
+  --spacing-sm: 0.5rem;
+  --spacing-md: 1rem;
+  --spacing-lg: 1.5rem;
+  --spacing-xl: 2rem;
+  
+  /* Border radius */
+  --radius-sm: 0.25rem;
+  --radius-md: 0.5rem;
+  --radius-lg: 1rem;
+  
+  /* Transitions */
+  --transition-fast: 150ms ease;
+  --transition-normal: 250ms ease;
+  --transition-slow: 350ms ease;
 }
 
+/* Base styles */
 body {
   margin: 0;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
@@ -19,21 +45,39 @@ body {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   background-color: var(--background);
-  color: var(--foreground);
+  color: var(--text-primary);
+  line-height: 1.5;
 }
 
-/* Hide scrollbar for Chrome, Safari and Opera */
+/* Responsive typography */
+@media (max-width: 640px) {
+  :root {
+    font-size: 14px;
+  }
+}
+
+@media (min-width: 641px) and (max-width: 1024px) {
+  :root {
+    font-size: 15px;
+  }
+}
+
+@media (min-width: 1025px) {
+  :root {
+    font-size: 16px;
+  }
+}
+
+/* Scrollbar styles */
 .scrollbar-hide::-webkit-scrollbar {
   display: none;
 }
 
-/* Hide scrollbar for IE, Edge and Firefox */
 .scrollbar-hide {
-  -ms-overflow-style: none;  /* IE and Edge */
-  scrollbar-width: none;  /* Firefox */
+  -ms-overflow-style: none;
+  scrollbar-width: none;
 }
 
-/* Custom scrollbar for the chat window */
 .overflow-y-auto::-webkit-scrollbar {
   width: 6px;
 }
@@ -45,10 +89,35 @@ body {
 .overflow-y-auto::-webkit-scrollbar-thumb {
   background: var(--accent);
   opacity: 0.2;
-  border-radius: 3px;
+  border-radius: var(--radius-sm);
+  transition: opacity var(--transition-fast);
 }
 
 .overflow-y-auto::-webkit-scrollbar-thumb:hover {
   background: var(--accent);
   opacity: 0.3;
+}
+
+/* Utility classes */
+@layer utilities {
+  .text-balance {
+    text-wrap: balance;
+  }
+  
+  .text-pretty {
+    text-wrap: pretty;
+  }
+  
+  .focus-ring {
+    outline: 2px solid var(--focus-ring);
+    outline-offset: 2px;
+  }
+  
+  .hover-lift {
+    transition: transform var(--transition-normal);
+  }
+  
+  .hover-lift:hover {
+    transform: translateY(-2px);
+  }
 } 

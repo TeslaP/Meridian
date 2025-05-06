@@ -27,11 +27,32 @@ if (!envLoaded) {
   console.warn('No environment file found in:', envPaths);
 }
 
-export const config = {
-  port: process.env.PORT || 3001,
-  openaiApiKey: process.env.OPENAI_API_KEY
+interface Config {
+  port: number;
+  openaiApiKey: string;
+  nodeEnv: 'development' | 'production' | 'test';
+  corsOrigins: string[];
+  maxTokens: number;
+  temperature: number;
+}
+
+function validateConfig(config: Partial<Config>): config is Config {
+  if (!config.openaiApiKey) {
+    throw new Error('Missing OPENAI_API_KEY environment variable');
+  }
+  if (!config.port || isNaN(Number(config.port))) {
+    throw new Error('Invalid PORT environment variable');
+  }
+  return true;
+}
+
+export const config: Config = {
+  port: Number(process.env.PORT) || 3001,
+  openaiApiKey: process.env.OPENAI_API_KEY || '',
+  nodeEnv: (process.env.NODE_ENV as Config['nodeEnv']) || 'development',
+  corsOrigins: (process.env.CORS_ORIGINS || 'http://localhost:5173,https://meridian-teslap.vercel.app').split(','),
+  maxTokens: Number(process.env.MAX_TOKENS) || 500,
+  temperature: Number(process.env.TEMPERATURE) || 0.9
 };
 
-if (!config.openaiApiKey) {
-  throw new Error('Missing OPENAI_API_KEY environment variable');
-} 
+validateConfig(config); 
