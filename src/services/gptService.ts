@@ -55,7 +55,7 @@ export async function generateCharacterResponse(
     passenger: passenger.name,
     question,
     discoveredItemsCount: discoveredItems.length,
-    discoveredItems, // Log the actual items
+    discoveredItems,
     dialogueHistoryLength: dialogueHistory.length,
     emotionalState,
     apiUrl: API_URL,
@@ -67,23 +67,30 @@ export async function generateCharacterResponse(
   for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
     try {
       console.log(`Attempt ${attempt}: Sending request to ${API_URL}`);
+      
+      const requestPayload = {
+        passenger,
+        question,
+        discoveredItems: discoveredItems.map(item => ({
+          name: item.name,
+          description: item.description,
+          type: item.type || 'unknown',
+          content: item.content || ''
+        })),
+        dialogueHistory,
+        emotionalState
+      };
+
+      console.log('Request payload:', JSON.stringify(requestPayload, null, 2));
+
       const response = await fetch(API_URL, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'Accept': 'application/json'
         },
-        body: JSON.stringify({
-          passenger,
-          question,
-          discoveredItems: discoveredItems.map(item => ({
-            name: item.name,
-            description: item.description,
-            type: item.type || 'unknown',
-            content: item.content || ''
-          })),
-          dialogueHistory,
-          emotionalState
-        }),
+        body: JSON.stringify(requestPayload),
+        credentials: 'omit' // Don't send cookies
       });
 
       if (!response.ok) {

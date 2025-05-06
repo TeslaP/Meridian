@@ -9,9 +9,9 @@ const openai = new OpenAI({
 
 // Configure CORS
 const corsMiddleware = cors({
-  origin: '*', // Allow all origins for now
-  methods: ['POST', 'OPTIONS'], // Only allow POST and OPTIONS
-  allowedHeaders: ['Content-Type', 'Authorization'],
+  origin: '*',
+  methods: ['POST', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'Accept'],
   credentials: true
 });
 
@@ -48,7 +48,8 @@ async function handler(req: VercelRequest, res: VercelResponse) {
   // Set CORS headers
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, Accept');
+  res.setHeader('Access-Control-Allow-Credentials', 'true');
 
   console.log('Received request:', {
     method: req.method,
@@ -80,6 +81,15 @@ async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(405).json({ 
       error: 'Method not allowed',
       details: `Expected POST, got ${req.method}`
+    });
+  }
+
+  // Validate request body
+  if (!req.body) {
+    console.error('Missing request body');
+    return res.status(400).json({
+      error: 'Bad request',
+      details: 'Request body is required'
     });
   }
 
