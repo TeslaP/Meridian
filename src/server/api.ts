@@ -14,7 +14,7 @@ app.use(cors({
 }));
 
 // Add security headers middleware
-app.use((req, res, next) => {
+app.use((_, res, next) => {
   res.setHeader(
     'Content-Security-Policy',
     "default-src 'self'; " +

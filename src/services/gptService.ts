@@ -94,9 +94,9 @@ export async function generateCharacterResponse(
       });
 
       if (!response.ok) {
-        let errorData;
+        let errorData: { error?: string; details?: string };
         try {
-          errorData = await response.json();
+          errorData = await response.json() as { error?: string; details?: string };
         } catch (e) {
           errorData = { 
             error: 'Failed to parse error response',
@@ -127,9 +127,9 @@ export async function generateCharacterResponse(
         }
       }
 
-      let data;
+      let data: GPTResponse;
       try {
-        data = await response.json();
+        data = await response.json() as GPTResponse;
       } catch (error) {
         console.error('Failed to parse response:', error);
         throw new Error('Invalid response format from server');
