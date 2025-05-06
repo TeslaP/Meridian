@@ -139,17 +139,22 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
     setIsProcessing(true);
 
     // Add user message to chat
-    setMessages(prev => [
-      ...prev,
-      {
-        id: Date.now().toString(),
-        content: userMessage,
-        sender: 'inspector',
-        timestamp: new Date()
-      },
-    ]);
+    const newMessage = {
+      id: Date.now().toString(),
+      content: userMessage,
+      sender: 'inspector' as const,
+      timestamp: new Date()
+    };
+    setMessages(prev => [...prev, newMessage]);
 
     try {
+      // Convert messages to dialogue history format
+      const dialogueHistory = messages.map(msg => ({
+        speaker: msg.sender === 'inspector' ? 'inspector' as const : 'character' as const,
+        text: msg.content,
+        timestamp: msg.timestamp.getTime()
+      }));
+
       const response = await generateCharacterResponse(
         passenger,
         userMessage,
@@ -157,8 +162,11 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
           .filter(a => a.discovered)
           .map(a => ({
             name: a.name,
-            description: a.description
-          }))
+            description: a.description,
+            type: a.type || 'unknown',
+            content: a.content || ''
+          })),
+        dialogueHistory
       );
 
       // Add character response to chat

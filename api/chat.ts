@@ -49,7 +49,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     method: req.method,
     path: req.url,
     headers: req.headers,
-    body: req.body
+    body: JSON.stringify(req.body, null, 2)
   });
 
   // Handle CORS
@@ -64,19 +64,42 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   });
 
   if (req.method === 'OPTIONS') {
+    console.log('Handling OPTIONS request');
     return res.status(200).end();
   }
 
   if (req.method !== 'POST') {
+    console.error('Invalid method:', req.method);
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
   try {
     const { passenger, question, discoveredItems, dialogueHistory = [], emotionalState } = req.body as ChatRequest;
 
+    console.log('Parsed request body:', {
+      passenger: {
+        name: passenger?.name,
+        trustLevel: passenger?.trustLevel
+      },
+      question,
+      discoveredItemsCount: discoveredItems?.length,
+      dialogueHistoryLength: dialogueHistory?.length,
+      emotionalState
+    });
+
     if (!passenger || !question) {
-      console.error('Missing required fields:', { passenger, question });
-      return res.status(400).json({ error: 'Missing required fields' });
+      console.error('Missing required fields:', { 
+        hasPassenger: !!passenger, 
+        hasQuestion: !!question,
+        body: JSON.stringify(req.body, null, 2)
+      });
+      return res.status(400).json({ 
+        error: 'Missing required fields',
+        details: {
+          hasPassenger: !!passenger,
+          hasQuestion: !!question
+        }
+      });
     }
 
     const jsonSchema = {
@@ -167,7 +190,9 @@ Do not mention or reference the JSON format, and never break character. When you
 
     console.log('Sending request to OpenAI:', {
       model: "gpt-4-1106-preview",
-      prompt: prompt.substring(0, 100) + '...' // Log first 100 chars of prompt
+      prompt: prompt.substring(0, 100) + '...', // Log first 100 chars of prompt
+      passengerName: passenger.name,
+      questionLength: question.length
     });
 
     const completion = await openai.chat.completions.create({
@@ -194,9 +219,12 @@ Do not mention or reference the JSON format, and never break character. When you
       throw new Error('No response from OpenAI');
     }
 
+    console.log('Raw OpenAI response:', response);
+
     let parsedResponse;
     try {
       parsedResponse = JSON.parse(response);
+      console.log('Parsed OpenAI response:', parsedResponse);
     } catch (error) {
       console.error('Failed to parse OpenAI response:', error, 'Raw response:', response);
       throw new Error('Invalid response format from OpenAI');
@@ -209,10 +237,11 @@ Do not mention or reference the JSON format, and never break character. When you
 
     parsedResponse.trustChange = Math.max(-10, Math.min(10, parsedResponse.trustChange));
 
-    console.log('Sending response:', {
+    console.log('Sending final response:', {
       responseLength: parsedResponse.response.length,
       trustChange: parsedResponse.trustChange,
-      hasRevelations: !!parsedResponse.revelations
+      hasRevelations: !!parsedResponse.revelations,
+      response: parsedResponse.response.substring(0, 100) + '...' // Log first 100 chars of response
     });
 
     return res.status(200).json(parsedResponse);
@@ -220,7 +249,8 @@ Do not mention or reference the JSON format, and never break character. When you
     console.error('Error processing request:', error);
     return res.status(500).json({ 
       error: 'Internal server error',
-      details: error instanceof Error ? error.message : 'Unknown error'
+      details: error instanceof Error ? error.message : 'Unknown error',
+      stack: error instanceof Error ? error.stack : undefined
     });
   }
 } 
