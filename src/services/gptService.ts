@@ -44,7 +44,7 @@ export async function generateCharacterResponse(
   });
 
   try {
-    const response = await fetch('http://localhost:3001/api/chat', {
+    const response = await fetch('https://meridian-teslap.vercel.app/api/chat', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
