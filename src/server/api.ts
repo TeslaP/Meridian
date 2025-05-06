@@ -69,6 +69,7 @@ const openai = new OpenAI({
 
 interface ChatRequest {
   passenger: {
+    id: string;
     name: string;
     title: string;
     description: string;
@@ -83,11 +84,21 @@ interface ChatRequest {
     type: string;
     content: string;
   }>;
+  dialogueHistory?: Array<{
+    speaker: 'inspector' | 'character';
+    text: string;
+    timestamp: number;
+  }>;
+  emotionalState?: {
+    mood: 'nervous' | 'defensive' | 'cooperative' | 'hostile' | 'neutral';
+    suspicion: number; // 0-100
+    stress: number; // 0-100
+  };
 }
 
 const chatHandler: RequestHandler = async (req: Request<{}, {}, ChatRequest>, res: Response): Promise<void> => {
   try {
-    const { passenger, question, discoveredItems } = req.body;
+    const { passenger, question, discoveredItems, dialogueHistory = [], emotionalState } = req.body;
 
     if (!passenger || !question) {
       res.status(400).json({ error: 'Missing required fields' });
@@ -97,7 +108,9 @@ const chatHandler: RequestHandler = async (req: Request<{}, {}, ChatRequest>, re
     console.log('Processing request for:', {
       passenger: passenger.name,
       question,
-      discoveredItemsCount: discoveredItems?.length || 0
+      discoveredItemsCount: discoveredItems?.length || 0,
+      dialogueHistoryLength: dialogueHistory.length,
+      emotionalState
     });
 
     const jsonSchema = {
@@ -137,36 +150,93 @@ const chatHandler: RequestHandler = async (req: Request<{}, {}, ChatRequest>, re
       required: ["response", "trustChange"]
     };
 
-    const prompt = `You are ${passenger.name}, ${passenger.title}. 
-${passenger.description}
-Background: ${passenger.background}
+    // Character-specific response patterns
+    const characterPatterns = {
+      'professor': {
+        evasive: [
+          "My research isn't relevant to this inquiry.",
+          "Please, Inspector, I urge you to focus on the facts.",
+          "You seem to be circling the same point. Clarify yourself."
+        ],
+        defensive: [
+          "I must maintain my professional composure...",
+          "These are merely theoretical exercises...",
+          "I assure you, my work is purely academic."
+        ],
+        cooperative: [
+          "Perhaps I can explain this in simpler terms...",
+          "Let me share what I know about this...",
+          "I've been studying this phenomenon for years..."
+        ]
+      },
+      'widow': {
+        evasive: [
+          "*adjusts black veil* Some matters are too painful to discuss.",
+          "My past is my own, Inspector.",
+          "I prefer to keep certain memories private."
+        ],
+        defensive: [
+          "Why must you pry into my affairs?",
+          "My husband's death is not your concern.",
+          "I've told you all I'm willing to share."
+        ],
+        cooperative: [
+          "Perhaps I can trust you with this...",
+          "My husband would have wanted me to speak...",
+          "There are things I've kept hidden for too long..."
+        ]
+      }
+      // Add patterns for other characters...
+    };
 
-Your current trust level with the inspector is ${passenger.trustLevel}%.
-Remember, the world you inhabit is a grim and mysterious place—*Meredian* is set in a retro-futuristic, Orwellian-dystopia aboard a decaying inspection train. Every word you speak carries the weight of secrets and hidden truths.
+    const getCharacterPrompt = (passenger: ChatRequest['passenger']) => {
+      return `You are roleplaying as a passenger on the space train Meredian. You are currently being interrogated by an inspector.
 
-The following items have been discovered about you:
-${discoveredItems && discoveredItems.length > 0 
-  ? discoveredItems.map(item => `- ${item.name}: ${item.description}`).join('\n') 
-  : 'No items discovered yet.'}
+Your character:
+- **Name**: ${passenger.name}
+- **Title**: ${passenger.title}
+- **Description**: ${passenger.description}
+- **Background**: ${passenger.background}
+- **Known secrets**: ${passenger.secrets?.join(', ') || 'None revealed yet'}
+- **Trust Level with Inspector**: ${passenger.trustLevel} / 10
 
-Your secrets (only you know these—reveal them only if your trust level with the inspector is very high):
-${passenger.secrets && passenger.secrets.length > 0 
-  ? passenger.secrets.map(secret => `- ${secret}`).join('\n') 
-  : 'No known secrets.'}
+Recent events:
+- **Discovered Items**: 
+  ${discoveredItems && discoveredItems.length > 0 
+    ? discoveredItems.map(item => `- ${item.name}: ${item.description}`).join('\n')
+    : 'None'}
+- **Emotional State**: 
+  - Mood: ${emotionalState?.mood || 'Unknown'}
+  - Suspicion: ${emotionalState?.suspicion ?? 'N/A'} / 100
+  - Stress: ${emotionalState?.stress ?? 'N/A'} / 100
 
-The inspector now asks: "${question}"
+Recent dialogue:
+${dialogueHistory && dialogueHistory.length > 0
+  ? dialogueHistory.slice(-5).map(d => 
+      `${d.speaker === 'inspector' ? 'Inspector' : passenger.name}: "${d.text}"`
+    ).join('\n')
+  : 'No dialogue yet'}
 
-Respond in character as naturally as possible, considering the following:
-1. Your unique personality, background, and demeanor.
-2. The current trust level the inspector has with you.
-3. The discovered items and how they affect your story.
-4. Your personal secrets and the discretion you exercise in revealing them.
-5. The overall grim, mysterious, and retro-futuristic context of this interrogation.
+Instruction:
+Respond **in character** as ${passenger.name}, using their voice and perspective. Your tone and behavior should reflect your emotional state and current trust level. 
+
+You may:
+- Reveal or withhold information based on trust.
+- Be evasive, aggressive, or vulnerable depending on stress/suspicion.
+- React to the inspector's question authentically.
+
+**Current question from the Inspector**:
+"${question}"
+
+Respond with a single spoken reply as the character (no narration).
 
 Your response must be a valid JSON object that strictly adheres to the following schema:
 ${JSON.stringify(jsonSchema, null, 2)}
 
-Do not mention or reference the JSON format, and never break character. When you refer to other characters or reveal additional information, include them in the "revelations" section of your JSON output.`;
+Do not mention or reference the JSON format, and never break character. When you refer to other characters or reveal additional information, include those details in the "revelations" section of your JSON output.`;
+    };
+
+    const prompt = getCharacterPrompt(passenger);
 
     console.log('Sending request to OpenAI...');
 
@@ -182,7 +252,7 @@ Do not mention or reference the JSON format, and never break character. When you
           content: prompt
         }
       ],
-      temperature: 0.7,
+      temperature: 0.8,
       max_tokens: 500,
       response_format: { type: "json_object" }
     });
