@@ -1,4 +1,4 @@
-import express from 'express';
+import express, { Request, Response } from 'express';
 import cors from 'cors';
 import OpenAI from 'openai';
 import dotenv from 'dotenv';
@@ -85,7 +85,7 @@ interface ChatRequest {
   }>;
 }
 
-app.post('/api/chat', async (req: express.Request<{}, {}, ChatRequest>, res: express.Response) => {
+app.post('/api/chat', async (req: Request<{}, {}, ChatRequest>, res: Response) => {
   try {
     const { passenger, question, discoveredItems } = req.body;
 

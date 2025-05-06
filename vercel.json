@@ -10,9 +10,17 @@
         "distDir": "dist",
         "buildCommand": "npm run vercel-build"
       }
+    },
+    {
+      "src": "src/server/api.ts",
+      "use": "@vercel/node"
     }
   ],
   "routes": [
+    {
+      "src": "/api/(.*)",
+      "dest": "src/server/api.ts"
+    },
     {
       "src": "/assets/(.*)\\.js",
       "headers": {
