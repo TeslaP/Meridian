@@ -7,13 +7,15 @@
       "src": "package.json",
       "use": "@vercel/static-build",
       "config": {
-        "distDir": "dist",
-        "buildCommand": "npm run vercel-build"
+        "distDir": "dist"
       }
     },
     {
       "src": "src/server/api.ts",
-      "use": "@vercel/node"
+      "use": "@vercel/node",
+      "config": {
+        "includeFiles": ["src/server/**/*"]
+      }
     }
   ],
   "routes": [
