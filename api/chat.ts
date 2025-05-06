@@ -12,7 +12,9 @@ const corsMiddleware = cors({
   origin: '*',
   methods: ['POST', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization', 'Accept'],
-  credentials: true
+  credentials: true,
+  preflightContinue: false,
+  optionsSuccessStatus: 200
 });
 
 interface ChatRequest {
@@ -50,6 +52,7 @@ async function handler(req: VercelRequest, res: VercelResponse) {
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, Accept');
   res.setHeader('Access-Control-Allow-Credentials', 'true');
+  res.setHeader('Access-Control-Max-Age', '86400'); // 24 hours
 
   console.log('Received request:', {
     method: req.method,
@@ -57,6 +60,12 @@ async function handler(req: VercelRequest, res: VercelResponse) {
     headers: req.headers,
     body: JSON.stringify(req.body, null, 2)
   });
+
+  // Handle OPTIONS request first
+  if (req.method === 'OPTIONS') {
+    console.log('Handling OPTIONS request');
+    return res.status(200).end();
+  }
 
   // Handle CORS
   await new Promise((resolve, reject) => {
@@ -68,12 +77,6 @@ async function handler(req: VercelRequest, res: VercelResponse) {
       return resolve(result);
     });
   });
-
-  // Handle OPTIONS request
-  if (req.method === 'OPTIONS') {
-    console.log('Handling OPTIONS request');
-    return res.status(200).end();
-  }
 
   // Ensure only POST requests are allowed
   if (req.method !== 'POST') {
