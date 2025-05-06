@@ -296,7 +296,25 @@ Do not mention or reference the JSON format, and never break character. When you
 
 app.post('/api/chat', chatHandler);
 
-const port = config.port;
-app.listen(port, () => {
-  console.log(`Server running on port ${port}`);
-}); 
+// Export the handler for Vercel
+export default async function handler(req: Request, res: Response) {
+  if (req.method === 'OPTIONS') {
+    res.status(200).end();
+    return;
+  }
+  
+  if (req.method !== 'POST') {
+    res.status(405).json({ error: 'Method not allowed' });
+    return;
+  }
+
+  return chatHandler(req, res, () => {});
+}
+
+// Keep the Express app for local development
+if (process.env.NODE_ENV !== 'production') {
+  const port = config.port;
+  app.listen(port, () => {
+    console.log(`Server running on port ${port}`);
+  });
+} 

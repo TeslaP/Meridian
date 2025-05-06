@@ -26,6 +26,6 @@
     "resolveJsonModule": true,
     "isolatedModules": true
   },
-  "include": ["api/**/*"],
+  "include": ["src/server/**/*"],
   "exclude": ["node_modules", "dist"]
 } 

@@ -9,31 +9,19 @@
       }
     },
     {
-      "src": "api/**/*.ts",
+      "src": "src/server/api.ts",
       "use": "@vercel/node",
       "config": {
-        "includeFiles": ["api/**/*"],
-        "tsconfig": "tsconfig.api.json",
-        "memory": 1024,
-        "maxDuration": 10
+        "includeFiles": ["src/server/**/*"],
+        "tsconfig": "tsconfig.api.json"
       }
     }
   ],
   "routes": [
     {
       "src": "/api/chat",
-      "dest": "/api/chat.ts",
-      "methods": ["POST", "OPTIONS"],
-      "headers": {
-        "Access-Control-Allow-Origin": "*",
-        "Access-Control-Allow-Headers": "Content-Type, Authorization, Accept",
-        "Access-Control-Allow-Methods": "POST, OPTIONS",
-        "Access-Control-Allow-Credentials": "true",
-        "Content-Security-Policy": "default-src 'self'; script-src 'self' 'unsafe-eval' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; connect-src 'self' https://api.openai.com; frame-ancestors 'none';",
-        "X-Content-Type-Options": "nosniff",
-        "X-Frame-Options": "DENY",
-        "X-XSS-Protection": "1; mode=block"
-      }
+      "dest": "/src/server/api.ts",
+      "methods": ["POST", "OPTIONS"]
     },
     {
       "handle": "filesystem"
