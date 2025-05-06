@@ -44,7 +44,7 @@ interface ChatRequest {
   };
 }
 
-export default async function handler(req: VercelRequest, res: VercelResponse) {
+async function handler(req: VercelRequest, res: VercelResponse) {
   console.log('Received request:', {
     method: req.method,
     path: req.url,
@@ -70,7 +70,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   if (req.method !== 'POST') {
     console.error('Invalid method:', req.method);
-    return res.status(405).json({ error: 'Method not allowed' });
+    return res.status(405).json({ 
+      error: 'Method not allowed',
+      details: `Expected POST, got ${req.method}`
+    });
   }
 
   try {
@@ -247,10 +250,23 @@ Do not mention or reference the JSON format, and never break character. When you
     return res.status(200).json(parsedResponse);
   } catch (error) {
     console.error('Error processing request:', error);
-    return res.status(500).json({ 
+    const errorResponse = {
       error: 'Internal server error',
       details: error instanceof Error ? error.message : 'Unknown error',
-      stack: error instanceof Error ? error.stack : undefined
-    });
+      stack: process.env.NODE_ENV === 'development' ? (error instanceof Error ? error.stack : undefined) : undefined
+    };
+    console.error('Sending error response:', errorResponse);
+    return res.status(500).json(errorResponse);
   }
-} 
+}
+
+// Add error handling middleware
+export const errorHandler = (err: any, req: VercelRequest, res: VercelResponse, next: any) => {
+  console.error('Unhandled error:', err);
+  res.status(500).json({
+    error: 'Internal server error',
+    details: err instanceof Error ? err.message : 'Unknown error'
+  });
+};
+
+export default handler; 

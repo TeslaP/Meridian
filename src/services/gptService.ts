@@ -87,7 +87,16 @@ export async function generateCharacterResponse(
       });
 
       if (!response.ok) {
-        const errorData = await response.json().catch(() => ({ details: 'Failed to parse error response' }));
+        let errorData;
+        try {
+          errorData = await response.json();
+        } catch (e) {
+          errorData = { 
+            error: 'Failed to parse error response',
+            details: `HTTP error ${response.status}`
+          };
+        }
+        
         console.error('API Error:', {
           status: response.status,
           statusText: response.statusText,
@@ -98,10 +107,27 @@ export async function generateCharacterResponse(
             discoveredItemsCount: discoveredItems.length
           }
         });
-        throw new Error(errorData.details || `HTTP error ${response.status}`);
+
+        // Handle specific error cases
+        if (response.status === 405) {
+          throw new Error('API endpoint does not support this request method. Please check the API configuration.');
+        } else if (response.status === 400) {
+          throw new Error(errorData.details || 'Invalid request data');
+        } else if (response.status === 500) {
+          throw new Error(errorData.details || 'Internal server error');
+        } else {
+          throw new Error(errorData.details || errorData.error || `HTTP error ${response.status}`);
+        }
       }
 
-      const data = await response.json();
+      let data;
+      try {
+        data = await response.json();
+      } catch (error) {
+        console.error('Failed to parse response:', error);
+        throw new Error('Invalid response format from server');
+      }
+
       console.log('API Response:', data);
       
       // Validate response structure
@@ -128,7 +154,7 @@ export async function generateCharacterResponse(
 
   console.error('All retry attempts failed:', lastError);
   
-  // Generate a fallback response based on trust level
+  // Generate a fallback response based on trust level and error
   const fallbackResponse: GPTResponse = {
     response: generateFallbackResponse(passenger, lastError?.message || 'Unknown error'),
     trustChange: -2, // Slight trust decrease for failed interaction
@@ -138,9 +164,14 @@ export async function generateCharacterResponse(
 }
 
 function generateFallbackResponse(passenger: Passenger, errorMessage: string): string {
+  console.error('Generating fallback response due to:', errorMessage);
   const trustLevel = passenger.trustLevel || 0;
   
-  if (trustLevel < 30) {
+  if (errorMessage.includes('API endpoint does not support')) {
+    return "I apologize, but there seems to be a technical issue with the communication system. Please try again in a moment.";
+  } else if (errorMessage.includes('Invalid request')) {
+    return "I'm having trouble understanding your question. Could you rephrase that?";
+  } else if (trustLevel < 30) {
     return "I don't feel comfortable discussing this right now.";
   } else if (trustLevel < 60) {
     return "I'm having trouble understanding your question. Could you rephrase that?";
