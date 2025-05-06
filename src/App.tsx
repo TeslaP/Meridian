@@ -14,10 +14,16 @@ const MainApp: React.FC = () => {
   const { isAuthenticated, username, logout } = useAuth();
 
   useEffect(() => {
-    // Debug environment variables
+    // Debug environment variables and deployment
     console.log('Environment:', process.env.NODE_ENV);
     console.log('VITE_APP_ENV:', process.env.VITE_APP_ENV);
-  }, []);
+    console.log('Deployment Debug:', {
+      isAuthenticated,
+      username,
+      error,
+      currentPassenger: currentPassenger?.id
+    });
+  }, [isAuthenticated, username, error, currentPassenger]);
 
   const handleInspect = (passengerId: string) => {
     try {
