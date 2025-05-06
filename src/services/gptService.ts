@@ -42,7 +42,12 @@ async function delay(ms: number) {
 export async function generateCharacterResponse(
   passenger: Passenger,
   question: string,
-  discoveredItems: Array<{ name: string; description: string }> = [],
+  discoveredItems: Array<{ 
+    name: string; 
+    description: string;
+    type?: string;
+    content?: string;
+  }> = [],
   dialogueHistory: DialogueEntry[] = [],
   emotionalState?: EmotionalState
 ): Promise<GPTResponse> {
@@ -50,6 +55,7 @@ export async function generateCharacterResponse(
     passenger: passenger.name,
     question,
     discoveredItemsCount: discoveredItems.length,
+    discoveredItems, // Log the actual items
     dialogueHistoryLength: dialogueHistory.length,
     emotionalState,
     apiUrl: API_URL,
@@ -69,7 +75,12 @@ export async function generateCharacterResponse(
         body: JSON.stringify({
           passenger,
           question,
-          discoveredItems,
+          discoveredItems: discoveredItems.map(item => ({
+            name: item.name,
+            description: item.description,
+            type: item.type || 'unknown',
+            content: item.content || ''
+          })),
           dialogueHistory,
           emotionalState
         }),
@@ -80,7 +91,12 @@ export async function generateCharacterResponse(
         console.error('API Error:', {
           status: response.status,
           statusText: response.statusText,
-          errorData
+          errorData,
+          requestBody: {
+            passenger: passenger.name,
+            question,
+            discoveredItemsCount: discoveredItems.length
+          }
         });
         throw new Error(errorData.details || `HTTP error ${response.status}`);
       }
