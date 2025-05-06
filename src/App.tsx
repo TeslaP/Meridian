@@ -53,7 +53,7 @@ export const App: React.FC = () => {
     setSelectedPassenger(resetPassengers[0]);
   };
 
-  const handleItemDiscovery = (passengerId: string, discoveredItems: string[]) => {
+  const handleItemDiscovery = (passengerId: string, itemId: string) => {
     setPassengers(prevPassengers => 
       prevPassengers.map(passenger => {
         if (passenger.id === passengerId) {
@@ -61,7 +61,7 @@ export const App: React.FC = () => {
             ...passenger,
             artifacts: passenger.artifacts.map(artifact => ({
               ...artifact,
-              discovered: discoveredItems.includes(artifact.id) || artifact.discovered
+              discovered: artifact.id === itemId || artifact.discovered
             }))
           };
         }
