@@ -1,4 +1,4 @@
-import express, { Request, Response } from 'express';
+import express, { Request, Response, RequestHandler } from 'express';
 import cors from 'cors';
 import OpenAI from 'openai';
 import dotenv from 'dotenv';
@@ -38,7 +38,7 @@ const app = express();
 
 // Configure CORS
 app.use(cors({
-  origin: 'http://localhost:5173', // Frontend URL
+  origin: ['http://localhost:5173', 'https://meridian-teslap.vercel.app'],
   methods: ['GET', 'POST'],
   allowedHeaders: ['Content-Type', 'Authorization'],
   credentials: true
@@ -52,7 +52,7 @@ app.use((req, res, next) => {
     "script-src 'self' 'unsafe-eval' 'unsafe-inline'; " +
     "style-src 'self' 'unsafe-inline'; " +
     "img-src 'self' data: https:; " +
-    "connect-src 'self' http://localhost:3001 https://api.openai.com; " +
+    "connect-src 'self' http://localhost:3001 https://api.openai.com https://meridian-teslap.vercel.app; " +
     "frame-ancestors 'none';"
   );
   res.setHeader('X-Content-Type-Options', 'nosniff');
@@ -85,7 +85,7 @@ interface ChatRequest {
   }>;
 }
 
-app.post('/api/chat', async (req: Request<{}, {}, ChatRequest>, res: Response) => {
+const chatHandler: RequestHandler = async (req: Request<{}, {}, ChatRequest>, res: Response) => {
   try {
     const { passenger, question, discoveredItems } = req.body;
 
@@ -195,7 +195,9 @@ Make your response natural and in character. Don't mention the JSON format in yo
       details: error instanceof Error ? error.message : 'Unknown error'
     });
   }
-});
+};
+
+app.post('/api/chat', chatHandler);
 
 const PORT = process.env.PORT || 3001;
 const server = app.listen(PORT, () => {
