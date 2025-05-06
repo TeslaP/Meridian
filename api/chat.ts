@@ -9,8 +9,8 @@ const openai = new OpenAI({
 
 // Configure CORS
 const corsMiddleware = cors({
-  origin: ['http://localhost:5173', 'https://meridian-teslap.vercel.app'],
-  methods: ['GET', 'POST'],
+  origin: '*', // Allow all origins for now
+  methods: ['GET', 'POST', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization'],
   credentials: true
 });
@@ -45,15 +45,27 @@ interface ChatRequest {
 }
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
+  console.log('Received request:', {
+    method: req.method,
+    path: req.url,
+    headers: req.headers,
+    body: req.body
+  });
+
   // Handle CORS
   await new Promise((resolve, reject) => {
     corsMiddleware(req, res, (result: Error | undefined) => {
       if (result instanceof Error) {
+        console.error('CORS error:', result);
         return reject(result);
       }
       return resolve(result);
     });
   });
+
+  if (req.method === 'OPTIONS') {
+    return res.status(200).end();
+  }
 
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
@@ -63,6 +75,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const { passenger, question, discoveredItems, dialogueHistory = [], emotionalState } = req.body as ChatRequest;
 
     if (!passenger || !question) {
+      console.error('Missing required fields:', { passenger, question });
       return res.status(400).json({ error: 'Missing required fields' });
     }
 
@@ -152,6 +165,11 @@ Do not mention or reference the JSON format, and never break character. When you
 
     const prompt = getCharacterPrompt(passenger);
 
+    console.log('Sending request to OpenAI:', {
+      model: "gpt-4-1106-preview",
+      prompt: prompt.substring(0, 100) + '...' // Log first 100 chars of prompt
+    });
+
     const completion = await openai.chat.completions.create({
       model: "gpt-4-1106-preview",
       messages: [
@@ -172,6 +190,7 @@ Do not mention or reference the JSON format, and never break character. When you
     const response = completion.choices[0].message.content;
 
     if (!response) {
+      console.error('No response from OpenAI');
       throw new Error('No response from OpenAI');
     }
 
@@ -179,7 +198,7 @@ Do not mention or reference the JSON format, and never break character. When you
     try {
       parsedResponse = JSON.parse(response);
     } catch (error) {
-      console.error('Failed to parse OpenAI response:', error);
+      console.error('Failed to parse OpenAI response:', error, 'Raw response:', response);
       throw new Error('Invalid response format from OpenAI');
     }
 
@@ -190,9 +209,18 @@ Do not mention or reference the JSON format, and never break character. When you
 
     parsedResponse.trustChange = Math.max(-10, Math.min(10, parsedResponse.trustChange));
 
+    console.log('Sending response:', {
+      responseLength: parsedResponse.response.length,
+      trustChange: parsedResponse.trustChange,
+      hasRevelations: !!parsedResponse.revelations
+    });
+
     return res.status(200).json(parsedResponse);
   } catch (error) {
     console.error('Error processing request:', error);
-    return res.status(500).json({ error: 'Internal server error' });
+    return res.status(500).json({ 
+      error: 'Internal server error',
+      details: error instanceof Error ? error.message : 'Unknown error'
+    });
   }
 } 
