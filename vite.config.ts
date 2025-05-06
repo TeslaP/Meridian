@@ -15,7 +15,15 @@ export default defineConfig(({ mode }) => {
   return {
     plugins: [react()],
     server: {
-      port: 3000,
+      port: 5173,
+      proxy: {
+        '/api': {
+          target: 'http://localhost:3001',
+          changeOrigin: true,
+          secure: false,
+          ws: true
+        }
+      },
       strictPort: true,
       headers: {
         'Content-Security-Policy': csp
@@ -33,7 +41,7 @@ export default defineConfig(({ mode }) => {
         output: {
           format: 'es',
           manualChunks: {
-            'react-vendor': ['react', 'react-dom'],
+            vendor: ['react', 'react-dom'],
             'openai-vendor': ['openai']
           },
           assetFileNames: (assetInfo) => {

@@ -5,7 +5,14 @@ export interface Artifact {
   type: 'document' | 'photograph' | 'object' | 'letter';
   content?: string;
   imageUrl?: string;
-  isRevealed: boolean;
+  discovered: boolean;
+  discoveryChance: number; // 1-10, where 10 is always found
+}
+
+export interface Associate {
+  name: string;
+  relationship: string;
+  details: string;
 }
 
 export interface Passenger {
@@ -14,11 +21,11 @@ export interface Passenger {
   title: string;
   description: string;
   background: string;
-  artifacts: Artifact[];
-  initialDialogue: string;
-  secrets: string[];
   trustLevel: number;
-  isInspected: boolean;
+  secrets: string[];
+  artifacts: Artifact[];
+  knownAssociates: Associate[];
+  initialDialogue: string;
 }
 
 export const passengers: Passenger[] = [
@@ -35,7 +42,8 @@ export const passengers: Passenger[] = [
         description: 'Complex mathematical formulas that seem to describe time manipulation.',
         type: 'document',
         content: 'The equations suggest a method of temporal displacement...',
-        isRevealed: false
+        discovered: false,
+        discoveryChance: 10
       },
       {
         id: 'academy_badge',
@@ -43,7 +51,8 @@ export const passengers: Passenger[] = [
         description: 'A tarnished brass badge showing his former position.',
         type: 'object',
         imageUrl: '/assets/artifacts/academy_badge.png',
-        isRevealed: false
+        discovered: false,
+        discoveryChance: 10
       }
     ],
     initialDialogue: "I assure you, Inspector, these are merely theoretical exercises. The Academy's concerns were... exaggerated.",
@@ -52,81 +61,85 @@ export const passengers: Passenger[] = [
       'He was forced to leave the Academy after a failed experiment',
       'His destination is not a university but a secret research facility'
     ],
-    trustLevel: 0,
-    isInspected: false
+    trustLevel: 50,
+    knownAssociates: []
   },
   {
     id: 'widow',
     name: 'Madame Elena Petrovna',
     title: 'The Widow',
-    description: 'A woman in black, clutching a worn photograph.',
-    background: 'Claims to be visiting her husband\'s grave in the next town. Her luggage contains items that suggest a different journey entirely.',
+    description: 'A mysterious woman in black, clutching a worn photograph.',
+    background: 'Claims to be traveling to visit her husband\'s grave, but her luggage contains items that suggest a different journey entirely.',
     artifacts: [
       {
-        id: 'husband_photo',
+        id: 'photograph',
         name: 'Worn Photograph',
         description: 'A faded photograph of a man in military uniform.',
-        type: 'photograph',
-        imageUrl: '/assets/artifacts/husband_photo.png',
-        isRevealed: false
+        type: 'object',
+        imageUrl: '/assets/artifacts/photograph.png',
+        discovered: false,
+        discoveryChance: 10
       },
       {
-        id: 'train_ticket',
-        name: 'One-Way Ticket',
-        description: 'A ticket to a destination far beyond the claimed grave site.',
-        type: 'document',
-        content: 'Destination: Northern Research Outpost',
-        isRevealed: false
+        id: 'mysterious_package',
+        name: 'Mysterious Package',
+        description: 'A carefully wrapped package with strange symbols.',
+        type: 'object',
+        imageUrl: '/assets/artifacts/package.png',
+        discovered: false,
+        discoveryChance: 10
       }
     ],
-    initialDialogue: 'My husband... he was a good man. The war took him from me, but his memory lives on.',
+    initialDialogue: "My dear Inspector... *clutches photograph tightly* My husband... he was a good man. The war took him from me, but his memory lives on.",
     secrets: [
-      'Her husband might still be alive',
-      'She\'s carrying classified military documents',
-      'The photograph is not of her husband'
+      'The photograph is not of her husband',
+      'The package contains stolen military documents',
+      'She\'s working with a resistance group'
     ],
-    trustLevel: 0,
-    isInspected: false
+    trustLevel: 50,
+    knownAssociates: []
   },
   {
     id: 'mechanic',
     name: 'Boris "The Fixer"',
     title: 'The Mechanic',
     description: 'A gruff individual with oil-stained hands and a mysterious toolbox.',
-    background: 'Claims to be a simple repairman, but their knowledge of the train\'s inner workings seems too detailed for a simple mechanic.',
+    background: 'Their knowledge of the train\'s inner workings seems too detailed for a simple repairman.',
     artifacts: [
       {
         id: 'toolbox',
         name: 'Mysterious Toolbox',
-        description: 'Contains tools that seem too advanced for simple repairs.',
+        description: 'Contains unusual tools and blueprints.',
         type: 'object',
         imageUrl: '/assets/artifacts/toolbox.png',
-        isRevealed: false
+        discovered: false,
+        discoveryChance: 10
       },
       {
         id: 'blueprints',
         name: 'Train Blueprints',
-        description: 'Detailed schematics of the train\'s mechanical systems.',
+        description: 'Detailed schematics of the train\'s systems.',
         type: 'document',
-        content: 'The blueprints show modifications to the train\'s power systems...',
-        isRevealed: false
+        content: 'The blueprints show hidden compartments...',
+        discovered: false,
+        discoveryChance: 10
       }
     ],
-    initialDialogue: 'Just doing my job, Inspector. This old train needs constant attention, you know how it is.',
+    initialDialogue: "Just doing my job, Inspector. This old train needs constant attention, you know how it is.",
     secrets: [
-      'They were once the train\'s chief engineer',
-      'The toolbox contains sabotage tools',
-      'They know about the train\'s secret compartments'
+      'They\'re not a real mechanic',
+      'The toolbox contains surveillance equipment',
+      'They know about the train\'s secret purpose'
     ],
-    trustLevel: 0,
-    isInspected: false
+    trustLevel: 50,
+    knownAssociates: []
   },
   {
     id: 'child',
     name: 'Anya',
     title: 'The Child',
     description: 'Traveling alone with a music box that plays a haunting melody.',
-    background: 'Claims to be traveling to meet relatives, but their innocence might be a facade. Their connection to the train\'s past is deeper than it appears.',
+    background: 'Their innocence might be a facade, and their connection to the train\'s past is deeper than it appears.',
     artifacts: [
       {
         id: 'music_box',
@@ -134,25 +147,27 @@ export const passengers: Passenger[] = [
         description: 'Plays a melody that seems to affect the train\'s systems.',
         type: 'object',
         imageUrl: '/assets/artifacts/music_box.png',
-        isRevealed: false
+        discovered: false,
+        discoveryChance: 10
       },
       {
-        id: 'old_ticket',
-        name: 'Vintage Ticket',
-        description: 'A ticket from 20 years ago, somehow still valid.',
-        type: 'document',
-        content: 'Issued to: Anya Volkov, Date: 1945',
-        isRevealed: false
+        id: 'doll',
+        name: 'Strange Doll',
+        description: 'A doll that seems to move on its own.',
+        type: 'object',
+        imageUrl: '/assets/artifacts/doll.png',
+        discovered: false,
+        discoveryChance: 10
       }
     ],
-    initialDialogue: 'The music box was my mother\'s. She said it would keep me safe on my journey.',
+    initialDialogue: "The music box was my mother's. She said it would keep me safe on my journey.",
     secrets: [
-      'The child might be much older than they appear',
-      'The music box contains a hidden message',
-      'They\'re related to the Professor'
+      'The music box controls the train',
+      'They\'re not really a child',
+      'They know about the train\'s true nature'
     ],
-    trustLevel: 0,
-    isInspected: false
+    trustLevel: 50,
+    knownAssociates: []
   },
   {
     id: 'official',
@@ -167,7 +182,8 @@ export const passengers: Passenger[] = [
         description: 'Impeccably forged government documents.',
         type: 'document',
         content: 'Authorization Level: Alpha, Department: Special Operations',
-        isRevealed: false
+        discovered: false,
+        discoveryChance: 10
       },
       {
         id: 'sealed_orders',
@@ -175,7 +191,8 @@ export const passengers: Passenger[] = [
         description: 'A sealed envelope containing classified instructions.',
         type: 'document',
         content: 'To be opened only at the final station...',
-        isRevealed: false
+        discovered: false,
+        discoveryChance: 10
       }
     ],
     initialDialogue: 'I trust you understand the importance of my mission, Inspector. Some questions are better left unasked.',
@@ -184,7 +201,7 @@ export const passengers: Passenger[] = [
       'The orders contain a list of passengers to be detained',
       'They know about the train\'s true purpose'
     ],
-    trustLevel: 0,
-    isInspected: false
+    trustLevel: 50,
+    knownAssociates: []
   }
 ]; 

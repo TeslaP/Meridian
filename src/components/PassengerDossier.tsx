@@ -3,55 +3,64 @@ import { Passenger } from '../data/passengers';
 
 interface PassengerDossierProps {
   passenger: Passenger;
-  onInspect: (passengerId: string) => void;
+  onInspect: () => void;
+  isActive: boolean;
 }
 
-export const PassengerDossier: React.FC<PassengerDossierProps> = ({ passenger, onInspect }) => {
+export const PassengerDossier: React.FC<PassengerDossierProps> = ({ passenger, onInspect, isActive }) => {
+  const trustLevelColor = () => {
+    if (passenger.trustLevel >= 80) return 'bg-green-600/50';
+    if (passenger.trustLevel >= 50) return 'bg-yellow-600/50';
+    return 'bg-red-600/50';
+  };
+
   return (
-    <div className="bg-gray-800 text-gray-200 p-6 rounded-lg shadow-lg">
-      <div className="mb-6">
-        <h2 className="text-2xl font-bold mb-2">{passenger.title}</h2>
-        <h3 className="text-xl text-gray-400 mb-4">{passenger.name}</h3>
-        <p className="text-gray-300 mb-4">{passenger.description}</p>
-        <div className="border-t border-gray-700 pt-4">
-          <h4 className="text-lg font-semibold mb-2">Background</h4>
-          <p className="text-gray-300">{passenger.background}</p>
+    <div 
+      className={`relative p-4 rounded-lg border transition-all duration-300 ${
+        isActive 
+          ? 'bg-[#2a2a2a] border-[#e2e0dc]/30' 
+          : 'bg-[#1b1b1b] border-[#2a2a2a] hover:border-[#e2e0dc]/20'
+      }`}
+    >
+      <div className="flex justify-between items-start mb-2">
+        <div>
+          <h3 className="text-lg font-['Playfair_Display'] font-bold text-[#e2e0dc]">
+            {passenger.name}
+          </h3>
+          <p className="text-sm text-[#e2e0dc]/70">{passenger.title}</p>
+        </div>
+        <div className="flex items-center space-x-2">
+          <div className="text-xs text-[#e2e0dc]/50">
+            Trust: {passenger.trustLevel}%
+          </div>
+          <div className={`w-2 h-2 rounded-full ${trustLevelColor()}`} />
         </div>
       </div>
 
-      <div className="mb-6">
-        <h4 className="text-lg font-semibold mb-2">Artifacts</h4>
-        <div className="space-y-3">
-          {passenger.artifacts.map((artifact) => (
-            <div
-              key={artifact.id}
-              className={`p-3 rounded ${
-                artifact.isRevealed ? 'bg-gray-700' : 'bg-gray-900'
-              }`}
-            >
-              <h5 className="font-medium">{artifact.name}</h5>
-              {artifact.isRevealed && (
-                <p className="text-sm text-gray-400 mt-1">{artifact.description}</p>
-              )}
-            </div>
-          ))}
-        </div>
-      </div>
-
-      <div className="mb-6">
-        <h4 className="text-lg font-semibold mb-2">Initial Statement</h4>
-        <p className="text-gray-300 italic">"{passenger.initialDialogue}"</p>
-      </div>
+      <p className="text-sm text-[#e2e0dc]/80 mb-4 line-clamp-2">
+        {passenger.description}
+      </p>
 
       <div className="flex justify-between items-center">
-        <div className="text-sm text-gray-400">
-          Trust Level: {passenger.trustLevel}
+        <div className="flex space-x-2">
+          {passenger.artifacts.map(artifact => (
+            <span 
+              key={artifact.id}
+              className="px-2 py-1 text-xs bg-[#2a2a2a] text-[#e2e0dc]/70 rounded"
+            >
+              {artifact.name}
+            </span>
+          ))}
         </div>
         <button
-          onClick={() => onInspect(passenger.id)}
-          className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded"
+          onClick={onInspect}
+          className={`px-4 py-2 rounded text-sm font-medium transition-colors ${
+            isActive
+              ? 'bg-[#e2e0dc]/10 text-[#e2e0dc]'
+              : 'bg-[#2a2a2a] text-[#e2e0dc]/70 hover:bg-[#e2e0dc]/10 hover:text-[#e2e0dc]'
+          }`}
         >
-          {passenger.isInspected ? 'Re-inspect' : 'Inspect'}
+          {isActive ? 'Inspecting...' : 'Inspect'}
         </button>
       </div>
     </div>

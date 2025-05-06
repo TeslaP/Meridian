@@ -1,76 +1,160 @@
-import React, { useState, useEffect } from 'react';
-import { ErrorBoundary } from './components/ErrorBoundary';
+import React, { useState } from 'react';
+import { passengers as initialPassengers } from './data/passengers';
 import { ChatWindow } from './components/ChatWindow';
-import { PassengerDossier } from './components/PassengerDossier';
+import { CharacterSlider } from './components/CharacterSlider';
+import { useAuth } from './contexts/AuthContext';
 import LoginWindow from './components/LoginWindow';
-import { AuthProvider, useAuth } from './contexts/AuthContext';
-import { passengers } from './data/passengers';
-import './styles/main.css';
+import { Passenger } from './data/passengers';
 
-const MainApp: React.FC = () => {
-  const [currentPassenger, setCurrentPassenger] = useState(passengers[0]);
+interface Associate {
+  name: string;
+  relationship: string;
+  details: string;
+}
+
+interface BiographyUpdate {
+  section: string;
+  content: string;
+}
+
+interface CharacterRevelations {
+  newAssociates?: Associate[];
+  biographyUpdates?: BiographyUpdate[];
+}
+
+interface GPTResponse {
+  response: string;
+  trustChange: number;
+  revelations?: CharacterRevelations;
+}
+
+export const App: React.FC = () => {
+  const [passengers, setPassengers] = useState<Passenger[]>(initialPassengers);
+  const [selectedPassenger, setSelectedPassenger] = useState(passengers[0]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const { isAuthenticated, username, logout } = useAuth();
+  const { user, logout } = useAuth();
 
-  useEffect(() => {
-    // Debug environment variables and deployment
-    console.log('Environment:', process.env.NODE_ENV);
-    console.log('VITE_APP_ENV:', process.env.VITE_APP_ENV);
-    console.log('Deployment Debug:', {
-      isAuthenticated,
-      username,
-      error,
-      currentPassenger: currentPassenger?.id
-    });
-  }, [isAuthenticated, username, error, currentPassenger]);
+  const handleError = (error: string) => {
+    setError(error);
+    setTimeout(() => setError(null), 5000);
+  };
 
-  const handleInspect = (passengerId: string) => {
-    try {
-      const passenger = passengers.find(p => p.id === passengerId);
-      if (passenger) {
-        setCurrentPassenger(passenger);
-      } else {
-        console.error('Passenger not found:', passengerId);
-        setError('Passenger not found');
+  const resetGame = () => {
+    // Reset all passengers to initial state
+    const resetPassengers = initialPassengers.map(passenger => ({
+      ...passenger,
+      artifacts: passenger.artifacts.map(artifact => ({
+        ...artifact,
+        discovered: false
+      }))
+    }));
+    setPassengers(resetPassengers);
+    setSelectedPassenger(resetPassengers[0]);
+  };
+
+  const handleItemDiscovery = (passengerId: string, discoveredItems: string[]) => {
+    setPassengers(prevPassengers => 
+      prevPassengers.map(passenger => {
+        if (passenger.id === passengerId) {
+          return {
+            ...passenger,
+            artifacts: passenger.artifacts.map(artifact => ({
+              ...artifact,
+              discovered: discoveredItems.includes(artifact.id) || artifact.discovered
+            }))
+          };
+        }
+        return passenger;
+      })
+    );
+  };
+
+  const handleTrustChange = (passengerId: string, change: number) => {
+    setPassengers(prevPassengers =>
+      prevPassengers.map(passenger => {
+        if (passenger.id === passengerId) {
+          const newTrustLevel = Math.max(0, Math.min(100, passenger.trustLevel + change));
+          return {
+            ...passenger,
+            trustLevel: newTrustLevel
+          };
+        }
+        return passenger;
+      })
+    );
+  };
+
+  const handleChatResponse = async (response: GPTResponse) => {
+    if (response.revelations) {
+      const { newAssociates, biographyUpdates } = response.revelations;
+      
+      if (newAssociates && newAssociates.length > 0) {
+        setPassengers(prevPassengers => 
+          prevPassengers.map(p => {
+            if (p.id === selectedPassenger?.id) {
+              return {
+                ...p,
+                knownAssociates: [
+                  ...p.knownAssociates,
+                  ...newAssociates.filter(newAssociate => 
+                    !p.knownAssociates.some(existing => 
+                      existing.name === newAssociate.name
+                    )
+                  )
+                ]
+              };
+            }
+            return p;
+          })
+        );
       }
-    } catch (err) {
-      console.error('Error inspecting passenger:', err);
-      setError('Error inspecting passenger');
+
+      if (biographyUpdates && biographyUpdates.length > 0) {
+        setPassengers(prevPassengers =>
+          prevPassengers.map(p => {
+            if (p.id === selectedPassenger?.id) {
+              const updates = biographyUpdates.reduce((acc: any, update: BiographyUpdate) => {
+                switch (update.section) {
+                  case 'background':
+                    return { ...acc, background: `${p.background}\n\n${update.content}` };
+                  case 'description':
+                    return { ...acc, description: `${p.description}\n\n${update.content}` };
+                  case 'secrets':
+                    return { ...acc, secrets: [...p.secrets, update.content] };
+                  default:
+                    return acc;
+                }
+              }, {});
+              return { ...p, ...updates };
+            }
+            return p;
+          })
+        );
+      }
     }
   };
 
-  if (!isAuthenticated) {
+  if (!user) {
     return <LoginWindow />;
   }
 
-  if (error) {
-    return (
-      <div className="min-h-screen bg-gray-900 text-white flex items-center justify-center">
-        <div className="bg-red-900 p-4 rounded">
-          <h2 className="text-xl font-bold mb-2">Error</h2>
-          <p>{error}</p>
-          <button
-            onClick={() => setError(null)}
-            className="mt-4 px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700"
-          >
-            Dismiss
-          </button>
-        </div>
-      </div>
-    );
-  }
-
   return (
-    <div className="min-h-screen bg-gray-900 text-white">
-      <header className="bg-gray-800 border-b border-gray-700 p-4">
+    <div className="min-h-screen bg-[#1a1a1a] text-[#e2e0dc]">
+      <header className="bg-[#2a2a2a] p-4 border-b border-[#2a2a2a]">
         <div className="container mx-auto flex justify-between items-center">
-          <h1 className="text-2xl font-bold">Meridian Inspection System</h1>
+          <h1 className="text-xl font-['Playfair_Display']">Meridian Interrogation System</h1>
           <div className="flex items-center space-x-4">
-            <span className="text-gray-300">Inspector: {username}</span>
+            <span className="text-sm text-[#e2e0dc]/70">Inspector {user.username}</span>
+            <button
+              onClick={resetGame}
+              className="px-4 py-2 bg-[#e2e0dc]/10 text-[#e2e0dc] rounded-lg hover:bg-[#e2e0dc]/20"
+            >
+              Start
+            </button>
             <button
               onClick={logout}
-              className="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700"
+              className="px-4 py-2 bg-[#e2e0dc]/10 text-[#e2e0dc] rounded-lg hover:bg-[#e2e0dc]/20"
             >
               Logout
             </button>
@@ -78,38 +162,132 @@ const MainApp: React.FC = () => {
         </div>
       </header>
 
+      {error && (
+        <div className="fixed top-4 right-4 bg-red-900/90 text-white px-6 py-3 rounded-lg shadow-lg z-50">
+          {error}
+        </div>
+      )}
+
       <main className="container mx-auto p-4">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div className="space-y-4">
-            {passengers.map(passenger => (
-              <PassengerDossier
-                key={passenger.id}
-                passenger={passenger}
-                onInspect={() => handleInspect(passenger.id)}
-              />
-            ))}
-          </div>
-          <div className="bg-gray-800 rounded-lg p-4">
+        <div className="grid grid-cols-1 lg:grid-cols-[500px,1fr,300px] gap-4">
+          {/* Dialogue Panel */}
+          <div className="bg-[#2a2a2a] rounded-lg p-4 h-[calc(100vh-8rem)]">
             <ChatWindow
-              passenger={currentPassenger}
+              passenger={selectedPassenger}
+              onTrustChange={handleTrustChange}
+              onItemDiscovery={handleItemDiscovery}
+              onChatResponse={handleChatResponse}
               isLoading={isLoading}
-              onError={setError}
+              onError={handleError}
             />
+          </div>
+
+          {/* Character Info Panel */}
+          <div className="bg-[#2a2a2a] rounded-lg p-4 h-[calc(100vh-8rem)] overflow-y-auto">
+            <div className="sticky top-4">
+              <h2 className="text-xl font-['Playfair_Display'] mb-4">Active Investigation</h2>
+              <div className="space-y-4">
+                <div className="bg-[#1a1a1a] p-4 rounded-lg">
+                  <div className="flex justify-between items-start mb-4">
+                    <div>
+                      <h3 className="text-lg font-bold mb-1">{selectedPassenger.name}</h3>
+                      <p className="text-sm text-[#e2e0dc]/70">{selectedPassenger.title}</p>
+                    </div>
+                    <div className="text-xs text-[#e2e0dc]/50">
+                      ID: {selectedPassenger.id}
+                    </div>
+                  </div>
+
+                  <div className="mb-4">
+                    <div className="flex items-center space-x-2 mb-2">
+                      <div className="text-sm">Trust Level:</div>
+                      <div className="flex-1 h-2 bg-[#2a2a2a] rounded-full overflow-hidden">
+                        <div 
+                          className="h-full bg-yellow-600/50 transition-all duration-300"
+                          style={{ width: `${selectedPassenger.trustLevel}%` }}
+                        />
+                      </div>
+                      <div className="text-sm">{selectedPassenger.trustLevel}%</div>
+                    </div>
+                  </div>
+
+                  <div className="space-y-4">
+                    <div>
+                      <h4 className="text-sm font-medium mb-2">Background</h4>
+                      <p className="text-sm text-[#e2e0dc]/80 leading-relaxed">
+                        {selectedPassenger.description}
+                      </p>
+                    </div>
+
+                    <div>
+                      <h4 className="text-sm font-medium mb-2">Key Items</h4>
+                      <div className="flex flex-wrap gap-2">
+                        {selectedPassenger.artifacts
+                          .filter(artifact => artifact.discovered)
+                          .map(artifact => (
+                            <div 
+                              key={artifact.id}
+                              className="px-3 py-2 bg-[#2a2a2a] text-[#e2e0dc]/70 rounded-lg"
+                            >
+                              <div className="font-medium text-sm">{artifact.name}</div>
+                              <div className="text-xs text-[#e2e0dc]/50 mt-1">
+                                {artifact.description}
+                              </div>
+                            </div>
+                          ))}
+                      </div>
+                    </div>
+
+                    <div>
+                      <h4 className="text-sm font-medium mb-2">Known Associates</h4>
+                      <div className="space-y-2">
+                        {selectedPassenger.knownAssociates.map((associate, index) => (
+                          <div 
+                            key={index}
+                            className="px-3 py-2 bg-[#2a2a2a] text-[#e2e0dc]/70 rounded-lg"
+                          >
+                            <div className="font-medium text-sm">{associate.name}</div>
+                            <div className="text-xs text-[#e2e0dc]/50">{associate.relationship}</div>
+                            <div className="text-xs text-[#e2e0dc]/50 mt-1">{associate.details}</div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Passenger List Panel */}
+          <div className="bg-[#2a2a2a] rounded-lg p-4 h-[calc(100vh-8rem)] overflow-y-auto">
+            <h2 className="text-xl font-['Playfair_Display'] mb-4">Passengers</h2>
+            <div className="space-y-2">
+              {passengers.map(passenger => (
+                <div
+                  key={passenger.id}
+                  className={`p-3 rounded-lg cursor-pointer transition-all duration-200 ${
+                    selectedPassenger.id === passenger.id
+                      ? 'bg-[#e2e0dc]/10'
+                      : 'bg-[#1a1a1a] hover:bg-[#e2e0dc]/5'
+                  }`}
+                  onClick={() => setSelectedPassenger(passenger)}
+                >
+                  <div className="flex justify-between items-center">
+                    <div>
+                      <h3 className="font-medium">{passenger.name}</h3>
+                      <p className="text-sm text-[#e2e0dc]/70">{passenger.title}</p>
+                    </div>
+                    <div className="text-xs text-[#e2e0dc]/50">
+                      {passenger.trustLevel}%
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
           </div>
         </div>
       </main>
     </div>
   );
-};
-
-const App: React.FC = () => {
-  return (
-    <ErrorBoundary>
-      <AuthProvider>
-        <MainApp />
-      </AuthProvider>
-    </ErrorBoundary>
-  );
-};
-
-export default App; 
+}; 
