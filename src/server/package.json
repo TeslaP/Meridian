@@ -4,7 +4,7 @@
   "type": "module",
   "scripts": {
     "start": "node --loader ts-node/esm api.ts",
-    "dev": "node --loader ts-node/esm api.ts"
+    "dev": "node --import tsx api.ts"
   },
   "dependencies": {
     "cors": "^2.8.5",
@@ -16,7 +16,8 @@
     "@types/cors": "^2.8.13",
     "@types/express": "^4.17.17",
     "@types/node": "^18.15.11",
-    "ts-node": "^10.9.1",
+    "ts-node": "^10.9.2",
+    "tsx": "^4.19.4",
     "typescript": "^5.0.4"
   }
 }

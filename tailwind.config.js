@@ -3,11 +3,10 @@ export default {
   content: [
     "./index.html",
     "./src/**/*.{js,ts,jsx,tsx}",
+    "!./node_modules/**/*",
     "!./src/**/*.test.{js,ts,jsx,tsx}",
     "!./src/**/*.spec.{js,ts,jsx,tsx}",
-    "!./src/**/*.stories.{js,ts,jsx,tsx}",
-    "!./src/**/*.d.ts",
-    "!./node_modules/**/*"
+    "!./src/**/*.stories.{js,ts,jsx,tsx}"
   ],
   theme: {
     extend: {

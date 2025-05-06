@@ -27,6 +27,16 @@ export default defineConfig(({ mode }) => {
       strictPort: true,
       headers: {
         'Content-Security-Policy': csp
+      },
+      watch: {
+        usePolling: false,
+        interval: 100,
+        ignored: [
+          '**/node_modules/**',
+          '**/dist/**',
+          '**/.git/**',
+          '**/src/server/**'  // Ignore server files as they're handled separately
+        ]
       }
     },
     build: {
