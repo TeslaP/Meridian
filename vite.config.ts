@@ -26,6 +26,13 @@ export default defineConfig(({ mode }) => {
           manualChunks: {
             'react-vendor': ['react', 'react-dom'],
             'openai-vendor': ['openai']
+          },
+          assetFileNames: (assetInfo) => {
+            const name = assetInfo.name || '';
+            if (name.endsWith('.js')) {
+              return 'assets/[name]-[hash][extname]';
+            }
+            return 'assets/[name]-[hash][extname]';
           }
         }
       }
