@@ -20,6 +20,7 @@ export default defineConfig(({ mode }) => {
       target: 'esnext',
       outDir: 'dist',
       sourcemap: true,
+      minify: 'terser',
       rollupOptions: {
         output: {
           manualChunks: {
@@ -31,6 +32,15 @@ export default defineConfig(({ mode }) => {
     },
     optimizeDeps: {
       include: ['react', 'react-dom'],
+      esbuildOptions: {
+        target: 'esnext'
+      }
+    },
+    esbuild: {
+      target: 'esnext',
+      supported: {
+        'top-level-await': true
+      }
     },
     define: {
       'process.env': env
