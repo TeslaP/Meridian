@@ -26,8 +26,12 @@ export default defineConfig(({ mode }) => {
       outDir: 'dist',
       sourcemap: true,
       minify: 'terser',
+      modulePreload: {
+        polyfill: true
+      },
       rollupOptions: {
         output: {
+          format: 'es',
           manualChunks: {
             'react-vendor': ['react', 'react-dom'],
             'openai-vendor': ['openai']
