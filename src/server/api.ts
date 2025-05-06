@@ -100,60 +100,82 @@ const chatHandler: RequestHandler = async (req: Request<{}, {}, ChatRequest>, re
       discoveredItemsCount: discoveredItems?.length || 0
     });
 
+    const jsonSchema = {
+      type: "object",
+      properties: {
+        response: { type: "string" },
+        trustChange: { type: "number", minimum: -10, maximum: 10 },
+        revelations: {
+          type: "object",
+          properties: {
+            newAssociates: {
+              type: "array",
+              items: {
+                type: "object",
+                properties: {
+                  name: { type: "string" },
+                  relationship: { type: "string" },
+                  details: { type: "string" }
+                },
+                required: ["name", "relationship", "details"]
+              }
+            },
+            biographyUpdates: {
+              type: "array",
+              items: {
+                type: "object",
+                properties: {
+                  section: { type: "string", enum: ["background", "description", "secrets"] },
+                  content: { type: "string" }
+                },
+                required: ["section", "content"]
+              }
+            }
+          }
+        }
+      },
+      required: ["response", "trustChange"]
+    };
+
     const prompt = `You are ${passenger.name}, ${passenger.title}. 
 ${passenger.description}
 Background: ${passenger.background}
 
 Your current trust level with the inspector is ${passenger.trustLevel}%.
+Remember, the world you inhabit is a grim and mysterious place—*Meredian* is set in a retro-futuristic, Orwellian-dystopia aboard a decaying inspection train. Every word you speak carries the weight of secrets and hidden truths.
 
 The following items have been discovered about you:
-${discoveredItems?.map((item) => `- ${item.name}: ${item.description}`).join('\n') || 'No items discovered yet.'}
+${discoveredItems && discoveredItems.length > 0 
+  ? discoveredItems.map(item => `- ${item.name}: ${item.description}`).join('\n') 
+  : 'No items discovered yet.'}
 
-Your secrets (only you know these, don't reveal them unless trust is very high):
-${passenger.secrets?.map((secret) => `- ${secret}`).join('\n') || 'No known secrets.'}
+Your secrets (only you know these—reveal them only if your trust level with the inspector is very high):
+${passenger.secrets && passenger.secrets.length > 0 
+  ? passenger.secrets.map(secret => `- ${secret}`).join('\n') 
+  : 'No known secrets.'}
 
-The inspector asks: "${question}"
+The inspector now asks: "${question}"
 
-Respond as your character would, considering:
-1. Your personality and background
-2. Your current trust level with the inspector
-3. What items they've discovered
-4. Your secrets and how much you want to reveal
-5. The context of the question
+Respond in character as naturally as possible, considering the following:
+1. Your unique personality, background, and demeanor.
+2. The current trust level the inspector has with you.
+3. The discovered items and how they affect your story.
+4. Your personal secrets and the discretion you exercise in revealing them.
+5. The overall grim, mysterious, and retro-futuristic context of this interrogation.
 
-If you mention any other characters or reveal new information about yourself, include it in the revelations section.
+Your response must be a valid JSON object that strictly adheres to the following schema:
+${JSON.stringify(jsonSchema, null, 2)}
 
-Format your response as JSON with:
-{
-  "response": "your character's response",
-  "trustChange": number between -10 and 10 indicating how this interaction affects trust,
-  "revelations": {
-    "newAssociates": [
-      {
-        "name": "character name",
-        "relationship": "how they are related to you",
-        "details": "what you know about them"
-      }
-    ],
-    "biographyUpdates": [
-      {
-        "section": "background|description|secrets",
-        "content": "new information to add"
-      }
-    ]
-  }
-}
-
-Make your response natural and in character. Don't mention the JSON format in your response.`;
+Do not mention or reference the JSON format, and never break character. When you refer to other characters or reveal additional information, include them in the "revelations" section of your JSON output.`;
 
     console.log('Sending request to OpenAI...');
 
     const completion = await openai.chat.completions.create({
-      model: "gpt-4",
+      model: "gpt-4-1106-preview",
       messages: [
         {
           role: "system",
-          content: "You are a character in an interrogation game. Respond in character and format your response as JSON. Never break character or mention the JSON format in your response. When mentioning other characters or revealing new information, include it in the revelations section."
+          content: `You are a character in *Meredian*, a dystopian, retro-futuristic interrogation game set aboard a mysterious inspection train in a decaying, post-war empire. Respond solely as your character, using natural language that reflects your background and personality in this atmosphere. Format your answer as a valid JSON object per the provided schema, but do not mention that you are using JSON. Always stay in character, and when divulging details about other characters or secrets, include them in the "revelations" section.`
         },
         {
           role: "user",
@@ -172,6 +194,11 @@ Make your response natural and in character. Don't mention the JSON format in yo
       throw new Error('No response from OpenAI');
     }
 
+    // Check if response was truncated
+    if (completion.choices[0].finish_reason === "length") {
+      console.warn('Response was truncated due to length limit');
+    }
+
     let parsedResponse;
     try {
       parsedResponse = JSON.parse(response);
@@ -180,7 +207,9 @@ Make your response natural and in character. Don't mention the JSON format in yo
       throw new Error('Invalid response format from OpenAI');
     }
 
+    // Validate response structure
     if (!parsedResponse.response || typeof parsedResponse.trustChange !== 'number') {
+      console.error('Invalid response structure:', parsedResponse);
       throw new Error('Invalid response structure from OpenAI');
     }
 
