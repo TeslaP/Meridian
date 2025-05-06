@@ -1,0 +1,31 @@
+{
+  "chapters": [
+    {
+      "id": "intro",
+      "title": "Introduction",
+      "content": "Welcome to the beginning of your journey...",
+      "choices": [
+        {
+          "id": "choice1",
+          "text": "Begin the adventure",
+          "nextChapter": "chapter1"
+        }
+      ]
+    }
+  ],
+  "characters": [
+    {
+      "id": "guide",
+      "name": "The Guide",
+      "description": "A mysterious figure who helps you navigate this world",
+      "personality": "Wise and patient"
+    }
+  ],
+  "locations": [
+    {
+      "id": "start",
+      "name": "The Beginning",
+      "description": "A peaceful clearing where your journey begins"
+    }
+  ]
+} 
