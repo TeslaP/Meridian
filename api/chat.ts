@@ -10,7 +10,7 @@ const openai = new OpenAI({
 // Configure CORS
 const corsMiddleware = cors({
   origin: '*', // Allow all origins for now
-  methods: ['GET', 'POST', 'OPTIONS'],
+  methods: ['POST', 'OPTIONS'], // Only allow POST and OPTIONS
   allowedHeaders: ['Content-Type', 'Authorization'],
   credentials: true
 });
@@ -63,11 +63,13 @@ async function handler(req: VercelRequest, res: VercelResponse) {
     });
   });
 
+  // Handle OPTIONS request
   if (req.method === 'OPTIONS') {
     console.log('Handling OPTIONS request');
     return res.status(200).end();
   }
 
+  // Ensure only POST requests are allowed
   if (req.method !== 'POST') {
     console.error('Invalid method:', req.method);
     return res.status(405).json({ 
