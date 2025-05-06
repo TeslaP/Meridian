@@ -153,7 +153,12 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
       const response = await generateCharacterResponse(
         passenger,
         userMessage,
-        passenger.artifacts.filter(a => a.discovered).map(a => a.id)
+        passenger.artifacts
+          .filter(a => a.discovered)
+          .map(a => ({
+            name: a.name,
+            description: a.description
+          }))
       );
 
       // Add character response to chat
