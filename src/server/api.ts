@@ -150,45 +150,6 @@ const chatHandler: RequestHandler = async (req: Request<{}, {}, ChatRequest>, re
       required: ["response", "trustChange"]
     };
 
-    // Character-specific response patterns
-    const characterPatterns = {
-      'professor': {
-        evasive: [
-          "My research isn't relevant to this inquiry.",
-          "Please, Inspector, I urge you to focus on the facts.",
-          "You seem to be circling the same point. Clarify yourself."
-        ],
-        defensive: [
-          "I must maintain my professional composure...",
-          "These are merely theoretical exercises...",
-          "I assure you, my work is purely academic."
-        ],
-        cooperative: [
-          "Perhaps I can explain this in simpler terms...",
-          "Let me share what I know about this...",
-          "I've been studying this phenomenon for years..."
-        ]
-      },
-      'widow': {
-        evasive: [
-          "*adjusts black veil* Some matters are too painful to discuss.",
-          "My past is my own, Inspector.",
-          "I prefer to keep certain memories private."
-        ],
-        defensive: [
-          "Why must you pry into my affairs?",
-          "My husband's death is not your concern.",
-          "I've told you all I'm willing to share."
-        ],
-        cooperative: [
-          "Perhaps I can trust you with this...",
-          "My husband would have wanted me to speak...",
-          "There are things I've kept hidden for too long..."
-        ]
-      }
-      // Add patterns for other characters...
-    };
-
     const getCharacterPrompt = (passenger: ChatRequest['passenger']) => {
       return `You are roleplaying as a passenger on the space train Meredian. You are currently being interrogated by an inspector.
 
@@ -252,7 +213,7 @@ Do not mention or reference the JSON format, and never break character. When you
           content: prompt
         }
       ],
-      temperature: 0.8,
+      temperature: 0.9,
       max_tokens: 500,
       response_format: { type: "json_object" }
     });

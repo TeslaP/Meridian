@@ -1,6 +1,6 @@
 import { Passenger } from '../data/passengers';
 
-interface GPTResponse {
+export interface GPTResponse {
   response: string;
   trustChange: number;
   revelations?: {
@@ -10,121 +10,91 @@ interface GPTResponse {
       details: string;
     }>;
     biographyUpdates?: Array<{
-      section: string;
+      section: 'background' | 'description' | 'secrets';
       content: string;
     }>;
   };
 }
 
-const API_URL = 'http://localhost:3001/api/chat';
+export interface DialogueEntry {
+  speaker: 'inspector' | 'character';
+  text: string;
+  timestamp: number;
+}
 
-export const generateCharacterResponse = async (
+export interface EmotionalState {
+  mood: 'nervous' | 'defensive' | 'cooperative' | 'hostile' | 'neutral';
+  suspicion: number;
+  stress: number;
+}
+
+export async function generateCharacterResponse(
   passenger: Passenger,
   question: string,
-  discoveredItems: string[]
-): Promise<GPTResponse> => {
+  discoveredItems: Array<{ name: string; description: string }> = [],
+  dialogueHistory: DialogueEntry[] = [],
+  emotionalState?: EmotionalState
+): Promise<GPTResponse> {
+  console.log('Generating response for:', {
+    passenger: passenger.name,
+    question,
+    discoveredItemsCount: discoveredItems.length,
+    dialogueHistoryLength: dialogueHistory.length,
+    emotionalState
+  });
+
   try {
-    // Log the incoming request details
-    console.log('=== GPT Request Details ===');
-    console.log('Passenger:', {
-      name: passenger.name,
-      title: passenger.title,
-      trustLevel: passenger.trustLevel
-    });
-    console.log('Question:', question);
-    console.log('Discovered Items:', discoveredItems);
-
-    const requestBody = {
-      passenger: {
-        name: passenger.name,
-        title: passenger.title,
-        description: passenger.description,
-        background: passenger.background,
-        trustLevel: passenger.trustLevel,
-        secrets: passenger.secrets,
-      },
-      question,
-      discoveredItems: passenger.artifacts
-        .filter(artifact => discoveredItems.includes(artifact.id))
-        .map(artifact => ({
-          name: artifact.name,
-          description: artifact.description,
-          type: artifact.type,
-          content: artifact.content,
-        })),
-    };
-
-    console.log('Request Body:', JSON.stringify(requestBody, null, 2));
-
-    const response = await fetch(API_URL, {
+    const response = await fetch('http://localhost:3001/api/chat', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify(requestBody),
+      body: JSON.stringify({
+        passenger,
+        question,
+        discoveredItems,
+        dialogueHistory,
+        emotionalState
+      }),
     });
-
-    console.log('=== API Response Status ===');
-    console.log('Status:', response.status);
-    console.log('Status Text:', response.statusText);
 
     if (!response.ok) {
       const errorData = await response.json();
-      console.error('API Error Details:', {
-        status: response.status,
-        statusText: response.statusText,
-        error: errorData
-      });
-      throw new Error(`API Error: ${errorData.details || response.statusText}`);
+      throw new Error(errorData.details || 'Failed to generate response');
     }
 
     const data = await response.json();
-    console.log('=== GPT Response Data ===');
-    console.log('Response:', data.response);
-    console.log('Trust Change:', data.trustChange);
-    console.log('Revelations:', data.revelations);
-
+    
+    // Validate response structure
     if (!data.response || typeof data.trustChange !== 'number') {
-      console.error('Invalid Response Format:', data);
-      throw new Error('Invalid response format from API');
+      throw new Error('Invalid response structure from server');
     }
 
-    return {
-      response: data.response,
-      trustChange: data.trustChange,
-      revelations: data.revelations
-    };
+    // Ensure trust change is within bounds
+    data.trustChange = Math.max(-10, Math.min(10, data.trustChange));
+
+    return data;
   } catch (error) {
-    console.error('=== Error in GPT Service ===');
-    console.error('Error Type:', error instanceof Error ? error.constructor.name : typeof error);
-    console.error('Error Message:', error instanceof Error ? error.message : error);
-    console.error('Error Stack:', error instanceof Error ? error.stack : 'No stack trace');
+    console.error('Error generating character response:', error);
     
-    // Character-specific fallback responses based on trust level and context
-    const fallbackResponses: { [key: string]: string } = {
-      'professor': "I must maintain my professional composure. These matters are... complex. Could you perhaps rephrase your question in a more precise manner?",
-      'widow': "*adjusts black veil* My dear Inspector, some memories are too painful to discuss. Perhaps you could ask about something else?",
-      'mechanic': "Look, I'm just trying to keep this train running. I don't have time for these questions. Can you be more specific about what you want to know?",
-      'child': "*hugs music box closer* I... I don't understand what you're asking. Could you explain it differently?",
-      'official': "I must remind you that I am here on official business. Your question touches on matters of state security. Please rephrase it appropriately.",
-      'dr_zhang': "As a medical professional, I must be precise in my responses. Could you clarify your question?",
-      'captain_kovacs': "I've been through worse interrogations than this. Ask your question again, and be direct about it.",
-      'professor_blackwood': "Hmm, an interesting line of questioning, but perhaps not the most relevant. Could you clarify your intent?",
-      'engineer_singh': "I need to be careful with my words, given the sensitive nature of our situation. Could you rephrase that?",
-      'security_chief_vasquez': "I've dealt with enough liars to know when someone's fishing. Be more specific with your questions."
+    // Generate a fallback response based on trust level
+    const fallbackResponse: GPTResponse = {
+      response: generateFallbackResponse(passenger, error instanceof Error ? error.message : 'Unknown error'),
+      trustChange: -2, // Slight trust decrease for failed interaction
     };
 
-    // Get character-specific response or use a generic one
-    const fallbackResponse = fallbackResponses[passenger.id] || 
-      `*${passenger.name} considers the question carefully*\nI'm not sure I understand what you're asking. Could you please rephrase that?`;
-
-    console.log('=== Using Fallback Response ===');
-    console.log('Character:', passenger.name);
-    console.log('Fallback Response:', fallbackResponse);
-
-    return {
-      response: fallbackResponse,
-      trustChange: -2,
-    };
+    return fallbackResponse;
   }
-}; 
+}
+
+function generateFallbackResponse(passenger: Passenger, errorMessage: string): string {
+  const trustLevel = passenger.trustLevel || 0;
+  
+  if (trustLevel < 30) {
+    return "I don't feel comfortable discussing this right now.";
+  } else if (trustLevel < 60) {
+    return "I'm having trouble understanding your question. Could you rephrase that?";
+  } else {
+    return "I apologize, but I'm having some difficulty responding at the moment. Perhaps we could try a different approach?";
+  }
+} 
