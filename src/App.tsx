@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { ChatWindow } from './components/ChatWindow';
 import { PassengerDossier } from './components/PassengerDossier';
@@ -13,15 +13,46 @@ const MainApp: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const { isAuthenticated, username, logout } = useAuth();
 
+  useEffect(() => {
+    // Debug environment variables
+    console.log('Environment:', process.env.NODE_ENV);
+    console.log('VITE_APP_ENV:', process.env.VITE_APP_ENV);
+  }, []);
+
   const handleInspect = (passengerId: string) => {
-    const passenger = passengers.find(p => p.id === passengerId);
-    if (passenger) {
-      setCurrentPassenger(passenger);
+    try {
+      const passenger = passengers.find(p => p.id === passengerId);
+      if (passenger) {
+        setCurrentPassenger(passenger);
+      } else {
+        console.error('Passenger not found:', passengerId);
+        setError('Passenger not found');
+      }
+    } catch (err) {
+      console.error('Error inspecting passenger:', err);
+      setError('Error inspecting passenger');
     }
   };
 
   if (!isAuthenticated) {
     return <LoginWindow />;
+  }
+
+  if (error) {
+    return (
+      <div className="min-h-screen bg-gray-900 text-white flex items-center justify-center">
+        <div className="bg-red-900 p-4 rounded">
+          <h2 className="text-xl font-bold mb-2">Error</h2>
+          <p>{error}</p>
+          <button
+            onClick={() => setError(null)}
+            className="mt-4 px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700"
+          >
+            Dismiss
+          </button>
+        </div>
+      </div>
+    );
   }
 
   return (

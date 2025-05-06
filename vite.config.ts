@@ -43,7 +43,11 @@ export default defineConfig(({ mode }) => {
       }
     },
     define: {
-      'process.env': env
+      'process.env': {
+        ...env,
+        NODE_ENV: mode,
+        VITE_APP_ENV: mode
+      }
     }
   };
 }); 
