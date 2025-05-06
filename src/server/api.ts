@@ -67,10 +67,13 @@ interface ChatRequest {
 
 const chatHandler: RequestHandler = async (req: Request<{}, {}, ChatRequest>, res: Response): Promise<void> => {
   try {
+    console.log('Received request body:', JSON.stringify(req.body, null, 2));
+    
     const { passenger, question, discoveredItems, dialogueHistory = [], emotionalState } = req.body;
 
     // Validate request body
     if (!passenger?.id || !passenger?.name || !passenger?.title || !passenger?.description || !passenger?.background) {
+      console.log('Invalid passenger data:', passenger);
       res.status(400).json({
         error: {
           code: '400',
@@ -82,6 +85,7 @@ const chatHandler: RequestHandler = async (req: Request<{}, {}, ChatRequest>, re
     }
 
     if (!question || typeof question !== 'string') {
+      console.log('Invalid question:', question);
       res.status(400).json({
         error: {
           code: '400',
@@ -187,6 +191,10 @@ Do not mention or reference the JSON format, and never break character. When you
     const prompt = getCharacterPrompt(passenger);
 
     console.log('Sending request to OpenAI...');
+    console.log('OpenAI API Key present:', !!config.openaiApiKey);
+    console.log('Using model:', "gpt-4-1106-preview");
+    console.log('Temperature:', config.temperature);
+    console.log('Max tokens:', config.maxTokens);
 
     const completion = await openai.chat.completions.create({
       model: "gpt-4-1106-preview",
@@ -205,10 +213,16 @@ Do not mention or reference the JSON format, and never break character. When you
       response_format: { type: "json_object" }
     });
 
-    const response = completion.choices[0].message.content;
-    console.log('Received OpenAI response:', response);
+    console.log('OpenAI response received:', {
+      finish_reason: completion.choices[0].finish_reason,
+      usage: completion.usage,
+      has_content: !!completion.choices[0].message.content
+    });
 
+    const response = completion.choices[0].message.content;
+    
     if (!response) {
+      console.error('No response content from OpenAI');
       throw new Error('No response from OpenAI');
     }
 
@@ -220,8 +234,10 @@ Do not mention or reference the JSON format, and never break character. When you
     let parsedResponse;
     try {
       parsedResponse = JSON.parse(response);
+      console.log('Successfully parsed OpenAI response');
     } catch (error) {
       console.error('Failed to parse OpenAI response:', error);
+      console.error('Raw response:', response);
       throw new Error('Invalid response format from OpenAI');
     }
 
@@ -234,15 +250,45 @@ Do not mention or reference the JSON format, and never break character. When you
     // Ensure trust change is within bounds
     parsedResponse.trustChange = Math.max(-10, Math.min(10, parsedResponse.trustChange));
 
-    console.log('Sending response:', parsedResponse);
+    console.log('Sending successful response to client');
     res.status(200).json(parsedResponse);
   } catch (error) {
     console.error('Error processing request:', error);
+    
+    // Log detailed error information
+    if (error instanceof Error) {
+      console.error('Error details:', {
+        name: error.name,
+        message: error.message,
+        stack: error.stack
+      });
+    }
+
+    // Check for OpenAI API errors
+    if (error instanceof OpenAI.APIError) {
+      console.error('OpenAI API Error:', {
+        status: error.status,
+        code: error.code,
+        message: error.message
+      });
+      res.status(500).json({
+        error: {
+          code: '500',
+          message: 'OpenAI API error',
+          details: error.message
+        }
+      });
+      return;
+    }
+
+    // Handle other errors
     res.status(500).json({
       error: {
         code: '500',
         message: error instanceof Error ? error.message : 'A server error has occurred',
-        details: config.nodeEnv === 'development' ? error : undefined
+        details: config.nodeEnv === 'development' ? 
+          (error instanceof Error ? error.stack : undefined) : 
+          undefined
       }
     });
   }

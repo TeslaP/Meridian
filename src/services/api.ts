@@ -23,7 +23,7 @@ export interface ChatError {
 }
 
 const API_URL = process.env.NODE_ENV === 'production' 
-  ? 'https://meridian-one.vercel.app/api/chat'
+  ? 'https://meridian-teslap.vercel.app/api/chat'
   : 'http://localhost:3001/api/chat';
 
 export class ApiError extends Error {
@@ -58,6 +58,19 @@ export async function sendChatMessage(
   }
 ): Promise<ChatResponse> {
   try {
+    console.log('Sending chat message:', {
+      passenger: {
+        id: passenger.id,
+        name: passenger.name,
+        title: passenger.title,
+        trustLevel: passenger.trustLevel
+      },
+      question,
+      discoveredItemsCount: discoveredItems.length,
+      dialogueHistoryLength: dialogueHistory.length,
+      emotionalState
+    });
+
     const response = await fetch(API_URL, {
       method: 'POST',
       headers: {
@@ -72,9 +85,12 @@ export async function sendChatMessage(
       })
     });
 
+    console.log('Response status:', response.status);
     const data = await response.json();
+    console.log('Response data:', data);
 
     if (!response.ok) {
+      console.error('API error:', data.error);
       throw new ApiError(
         data.error?.code || '500',
         data.error?.message || 'An error occurred',
@@ -84,6 +100,7 @@ export async function sendChatMessage(
 
     return data;
   } catch (error) {
+    console.error('Error in sendChatMessage:', error);
     if (error instanceof ApiError) {
       throw error;
     }
