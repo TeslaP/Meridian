@@ -13,7 +13,9 @@
       "use": "@vercel/node",
       "config": {
         "includeFiles": ["api/**/*"],
-        "tsconfig": "tsconfig.api.json"
+        "tsconfig": "tsconfig.api.json",
+        "memory": 1024,
+        "maxDuration": 10
       }
     }
   ],
@@ -43,11 +45,5 @@
   ],
   "env": {
     "NODE_ENV": "production"
-  },
-  "functions": {
-    "api/chat.ts": {
-      "memory": 1024,
-      "maxDuration": 10
-    }
   }
 } 
