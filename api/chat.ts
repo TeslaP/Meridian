@@ -14,8 +14,20 @@ const corsMiddleware = cors({
   allowedHeaders: ['Content-Type', 'Authorization', 'Accept'],
   credentials: true,
   preflightContinue: false,
-  optionsSuccessStatus: 200
+  optionsSuccessStatus: 204
 });
+
+// Helper function to handle errors
+function handleError(res: VercelResponse, status: number, code: string, message: string, details?: string) {
+  console.error(`Error ${status}: ${message}`, details ? `Details: ${details}` : '');
+  return res.status(status).json({
+    error: {
+      code,
+      message,
+      ...(details && { details })
+    }
+  });
+}
 
 interface ChatRequest {
   passenger: {
@@ -47,84 +59,54 @@ interface ChatRequest {
 }
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
-  try {
-    // Set CORS headers
-    res.setHeader('Access-Control-Allow-Origin', '*');
-    res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
-    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, Accept');
-    res.setHeader('Access-Control-Allow-Credentials', 'true');
+  // Apply CORS middleware
+  await new Promise((resolve, reject) => {
+    corsMiddleware(req, res, (result: Error | undefined) => {
+      if (result instanceof Error) {
+        reject(result);
+      }
+      resolve(result);
+    });
+  });
 
+  try {
     // Handle OPTIONS request
     if (req.method === 'OPTIONS') {
-      console.log('Handling OPTIONS request');
-      return res.status(200).end();
+      return res.status(204).end();
     }
 
     // Ensure only POST requests are allowed
     if (req.method !== 'POST') {
-      console.error('Invalid method:', req.method);
-      return res.status(405).json({ 
-        error: {
-          code: '405',
-          message: 'Method not allowed',
-          details: `Expected POST, got ${req.method}`
-        }
-      });
+      return handleError(res, 405, '405', 'Method not allowed', `Expected POST, got ${req.method}`);
     }
 
     // Validate request body
     if (!req.body) {
-      console.error('Missing request body');
-      return res.status(400).json({
-        error: {
-          code: '400',
-          message: 'Bad request',
-          details: 'Request body is required'
-        }
-      });
+      return handleError(res, 400, '400', 'Bad request', 'Request body is required');
     }
 
     // Validate API key
     if (!process.env.OPENAI_API_KEY) {
-      console.error('Missing OpenAI API key');
-      return res.status(500).json({
-        error: {
-          code: '500',
-          message: 'Server configuration error',
-          details: 'OpenAI API key is not configured'
-        }
-      });
+      return handleError(res, 500, '500', 'Server configuration error', 'OpenAI API key is not configured');
     }
 
     const { passenger, question, discoveredItems, dialogueHistory = [], emotionalState } = req.body as ChatRequest;
 
     // Validate required fields
     if (!passenger?.id || !passenger?.name || !passenger?.title || !passenger?.description || !passenger?.background) {
-      console.error('Invalid passenger data:', passenger);
-      return res.status(400).json({
-        error: {
-          code: '400',
-          message: 'Invalid passenger data',
-          details: 'Missing required passenger fields'
-        }
-      });
+      return handleError(res, 400, '400', 'Invalid passenger data', 'Missing required passenger fields');
     }
 
     if (!question || typeof question !== 'string') {
-      console.error('Invalid question:', question);
-      return res.status(400).json({
-        error: {
-          code: '400',
-          message: 'Invalid question',
-          details: 'Question must be a non-empty string'
-        }
-      });
+      return handleError(res, 400, '400', 'Invalid question', 'Question must be a non-empty string');
     }
 
-    console.log('Parsed request body:', {
+    // Log request details
+    console.log('Processing request:', {
       passenger: {
-        name: passenger?.name,
-        trustLevel: passenger?.trustLevel
+        id: passenger.id,
+        name: passenger.name,
+        trustLevel: passenger.trustLevel
       },
       question,
       discoveredItemsCount: discoveredItems?.length,
