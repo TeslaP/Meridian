@@ -35,10 +35,15 @@ export default defineConfig(({ mode }) => {
           assetFileNames: (assetInfo) => {
             const name = assetInfo.name || '';
             if (name.endsWith('.js')) {
-              return 'assets/[name]-[hash][extname]';
+              return 'assets/[name]-[hash].js';
+            }
+            if (name.endsWith('.css')) {
+              return 'assets/[name]-[hash].css';
             }
             return 'assets/[name]-[hash][extname]';
-          }
+          },
+          chunkFileNames: 'assets/[name]-[hash].js',
+          entryFileNames: 'assets/[name]-[hash].js'
         }
       }
     },
