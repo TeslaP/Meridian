@@ -1,7 +1,7 @@
 import express, { Request, Response, RequestHandler } from 'express';
 import cors from 'cors';
 import OpenAI from 'openai';
-import { config } from './config';
+import { config } from './config.js';
 
 const app = express();
 
