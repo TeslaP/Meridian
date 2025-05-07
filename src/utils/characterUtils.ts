@@ -1,4 +1,4 @@
-import { Passenger } from '../data/passengers';
+import { Passenger } from '../data/passengers.js';
 
 export function getCharacterGreeting(passenger: Passenger): string {
   const greetings: { [key: string]: string } = {
