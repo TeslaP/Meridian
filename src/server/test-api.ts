@@ -1,4 +1,4 @@
-const fetch = require('node-fetch');
+import fetch from 'node-fetch';
 
 const DEV_API_URL = 'http://localhost:3001/api/chat';
 const PROD_API_URL = 'https://meridian-one.vercel.app/api/chat';

@@ -14,7 +14,8 @@
       "config": {
         "includeFiles": ["src/server/**/*"],
         "tsconfig": "tsconfig.api.json",
-        "nodeVersion": "18.x"
+        "nodeVersion": "18.x",
+        "buildCommand": "npm run build"
       }
     }
   ],

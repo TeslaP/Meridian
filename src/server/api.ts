@@ -207,15 +207,20 @@ async function chatHandler(req: express.Request, res: express.Response, next: ex
   }
 }
 
-// Handle OPTIONS requests
-app.options('/api/chat', (_, res) => {
-  res.status(204).end();
-});
+// Export the handler for Vercel
+export default async function handler(req: express.Request, res: express.Response) {
+  if (req.method === 'OPTIONS') {
+    res.status(204).end();
+    return;
+  }
+  
+  if (req.method !== 'POST') {
+    res.status(405).json({ error: 'Method not allowed' });
+    return;
+  }
 
-// Handle POST requests
-app.post('/api/chat', chatHandler);
-
-export default app;
+  return chatHandler(req, res, () => {});
+}
 
 // Keep the Express app for local development
 if (process.env.NODE_ENV !== 'production') {
