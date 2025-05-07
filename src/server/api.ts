@@ -1,32 +1,5 @@
-import express from 'express';
-import cors from 'cors';
 import OpenAI from 'openai';
 import { config } from './config.js';
-
-const app = express();
-
-// Configure CORS
-app.use(cors({
-  origin: process.env.NODE_ENV === 'production' 
-    ? 'https://meridian-one.vercel.app'  // Must be exact origin for credentials
-    : 'http://localhost:5173',  // Development origin
-  methods: ['GET', 'POST', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'Accept'],
-  credentials: true,
-  exposedHeaders: ['Content-Length', 'Content-Type'],  // Safe headers that can be exposed
-  maxAge: 86400  // Cache preflight requests for 24 hours
-}));
-
-// Add security headers
-app.use((_, res, next) => {
-  res.setHeader('X-Content-Type-Options', 'nosniff');
-  res.setHeader('X-Frame-Options', 'DENY');
-  res.setHeader('X-XSS-Protection', '1; mode=block');
-  res.setHeader('Content-Security-Policy', "default-src 'self'; script-src 'self' 'unsafe-eval' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; connect-src 'self' http://localhost:3001 https://api.openai.com https://meridian-one.vercel.app; frame-ancestors 'none';");
-  next();
-});
-
-app.use(express.json());
 
 const openai = new OpenAI({
   apiKey: config.openaiApiKey,
@@ -106,15 +79,9 @@ Format your response as JSON:
   return prompt;
 }
 
-async function processChatRequest(request: {
-  passenger: any;
-  question: string;
-  discoveredItems: any[];
-  dialogueHistory: any[];
-  emotionalState: { mood: string; suspicion: number; stress: number };
-}) {
+async function processChatRequest(request: ChatRequest) {
   // Generate the prompt
-  const prompt = generatePrompt(request as ChatRequest);
+  const prompt = generatePrompt(request);
   console.log('Generated prompt:', prompt);
   console.log('Max tokens:', config.maxTokens);
 
@@ -165,7 +132,7 @@ async function processChatRequest(request: {
   return parsedResponse;
 }
 
-async function chatHandler(req: express.Request, res: express.Response): Promise<void> {
+export default async function handler(req: any, res: any) {
   console.log('API handler called:', {
     method: req.method,
     url: req.url,
@@ -173,14 +140,17 @@ async function chatHandler(req: express.Request, res: express.Response): Promise
     body: req.body
   });
 
+  // Set CORS headers
+  res.setHeader('Access-Control-Allow-Credentials', 'true');
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET,POST,OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type,Authorization');
+  res.setHeader('Content-Type', 'application/json');
+
   try {
     // Handle CORS preflight
     if (req.method === 'OPTIONS') {
       console.log('Handling OPTIONS request');
-      res.setHeader('Access-Control-Allow-Credentials', 'true');
-      res.setHeader('Access-Control-Allow-Origin', '*');
-      res.setHeader('Access-Control-Allow-Methods', 'GET,POST');
-      res.setHeader('Access-Control-Allow-Headers', 'Content-Type,Authorization');
       res.status(204).end();
       return;
     }
@@ -188,7 +158,6 @@ async function chatHandler(req: express.Request, res: express.Response): Promise
     // Only allow POST requests
     if (req.method !== 'POST') {
       console.log('Invalid method:', req.method);
-      res.setHeader('Allow', ['POST']);
       res.status(405).json({ error: 'Method not allowed' });
       return;
     }
@@ -231,11 +200,6 @@ async function chatHandler(req: express.Request, res: express.Response): Promise
       revelationsCount: response.revelations.biographyUpdates.length
     });
 
-    // Set CORS headers for the response
-    res.setHeader('Access-Control-Allow-Credentials', 'true');
-    res.setHeader('Access-Control-Allow-Origin', '*');
-    res.setHeader('Content-Type', 'application/json');
-
     // Send the response
     res.status(200).json(response);
   } catch (error) {
@@ -245,15 +209,4 @@ async function chatHandler(req: express.Request, res: express.Response): Promise
       details: error instanceof Error ? error.message : 'Unknown error'
     });
   }
-}
-
-// Export the handler for Vercel
-export default chatHandler;
-
-// Keep the Express app for local development
-if (process.env.NODE_ENV !== 'production') {
-  const port = config.port;
-  app.listen(port, () => {
-    console.log(`Server running on port ${port}`);
-  });
 } 
