@@ -7,10 +7,14 @@ const app = express();
 
 // Configure CORS
 app.use(cors({
-  origin: config.corsOrigins,
+  origin: process.env.NODE_ENV === 'production' 
+    ? 'https://meridian-one.vercel.app'  // Must be exact origin for credentials
+    : 'http://localhost:5173',  // Development origin
   methods: ['GET', 'POST', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization', 'Accept'],
-  credentials: true
+  credentials: true,
+  exposedHeaders: ['Content-Length', 'Content-Type'],  // Safe headers that can be exposed
+  maxAge: 86400  // Cache preflight requests for 24 hours
 }));
 
 // Add security headers
@@ -18,7 +22,7 @@ app.use((_, res, next) => {
   res.setHeader('X-Content-Type-Options', 'nosniff');
   res.setHeader('X-Frame-Options', 'DENY');
   res.setHeader('X-XSS-Protection', '1; mode=block');
-  res.setHeader('Content-Security-Policy', "default-src 'self'; script-src 'self' 'unsafe-eval' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; connect-src 'self' http://localhost:3001 https://api.openai.com https://meridian-teslap.vercel.app; frame-ancestors 'none';");
+  res.setHeader('Content-Security-Policy', "default-src 'self'; script-src 'self' 'unsafe-eval' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; connect-src 'self' http://localhost:3001 https://api.openai.com https://meridian-one.vercel.app; frame-ancestors 'none';");
   next();
 });
 

@@ -23,7 +23,7 @@ export interface ChatError {
 }
 
 const API_URL = process.env.NODE_ENV === 'production' 
-  ? 'https://meridian-teslap.vercel.app/api/chat'
+  ? 'https://meridian-one.vercel.app/api/chat'
   : 'http://localhost:3001/api/chat';
 
 export class ApiError extends Error {
@@ -75,7 +75,9 @@ export async function sendChatMessage(
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
+        'Accept': 'application/json'
       },
+      credentials: 'include',
       body: JSON.stringify({
         passenger,
         question,
