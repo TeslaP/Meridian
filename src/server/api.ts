@@ -102,28 +102,30 @@ Format your response as JSON:
   return prompt;
 }
 
-async function chatHandler(req: express.Request, res: express.Response, next: express.NextFunction) {
+async function chatHandler(req: express.Request, res: express.Response): Promise<void> {
   try {
     // Validate request
     if (!req.body || typeof req.body !== 'object') {
-      return res.status(400).json({
+      res.status(400).json({
         error: {
           code: 'INVALID_REQUEST',
           message: 'Request body is required and must be an object'
         }
       });
+      return;
     }
 
     const chatRequest = req.body as ChatRequest;
 
     // Validate required fields
     if (!chatRequest.passenger || !chatRequest.question) {
-      return res.status(400).json({
+      res.status(400).json({
         error: {
           code: 'MISSING_FIELDS',
           message: 'Missing required fields: passenger and question are required'
         }
       });
+      return;
     }
 
     // Generate the prompt
@@ -188,12 +190,13 @@ async function chatHandler(req: express.Request, res: express.Response, next: ex
         type: error.type
       });
 
-      return res.status(error.status || 500).json({
+      res.status(error.status || 500).json({
         error: {
           code: error.code || 'OPENAI_ERROR',
           message: error.message
         }
       });
+      return;
     }
 
     // Handle other errors
@@ -208,7 +211,7 @@ async function chatHandler(req: express.Request, res: express.Response, next: ex
 }
 
 // Export the handler for Vercel
-export default async function handler(req: express.Request, res: express.Response) {
+export default async function handler(req: express.Request, res: express.Response): Promise<void> {
   if (req.method === 'OPTIONS') {
     res.status(204).end();
     return;
@@ -219,7 +222,7 @@ export default async function handler(req: express.Request, res: express.Respons
     return;
   }
 
-  return chatHandler(req, res, () => {});
+  await chatHandler(req, res);
 }
 
 // Keep the Express app for local development

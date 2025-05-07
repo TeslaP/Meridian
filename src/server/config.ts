@@ -1,5 +1,5 @@
 import dotenv from 'dotenv';
-import { dirname, join } from 'path';
+import { join } from 'path';
 
 const __dirname = process.cwd();
 
