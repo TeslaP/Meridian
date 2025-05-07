@@ -1,4 +1,4 @@
-import fetch from 'node-fetch';
+import fetch, { RequestInit } from 'node-fetch';
 
 const DEV_API_URL = 'http://localhost:3001/api/chat';
 const PROD_API_URL = 'https://meridian-one.vercel.app/api/chat';
@@ -117,9 +117,10 @@ async function testAPI(url: string, env: string) {
       method: 'OPTIONS',
       headers: {
         'Access-Control-Request-Method': 'POST',
-        'Access-Control-Request-Headers': 'Content-Type, Authorization, Accept'
+        'Access-Control-Request-Headers': 'Content-Type, Authorization, Accept',
+        'Origin': 'http://localhost:5173'
       }
-    });
+    } as RequestInit);
 
     console.log('OPTIONS Response:', {
       status: optionsResponse.status,
@@ -145,10 +146,12 @@ async function testAPI(url: string, env: string) {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Accept': 'application/json'
+          'Accept': 'application/json',
+          'Origin': 'http://localhost:5173'
         },
+        credentials: 'include',
         body: JSON.stringify(testCase.payload)
-      });
+      } as RequestInit);
 
       console.log('POST Response:', {
         status: response.status,
