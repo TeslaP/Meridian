@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Passenger } from '../data/passengers';
-import { sendChatMessage, ApiError } from '../services/api';
-import { getCharacterGreeting } from '../utils/characterUtils';
+import { Passenger } from '../data/passengers.js';
+import { sendChatMessage, ApiError } from '../services/api.js';
+import { getCharacterGreeting } from '../utils/characterUtils.js';
 
 interface Message {
   id: string;

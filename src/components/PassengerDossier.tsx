@@ -1,5 +1,5 @@
 import React from 'react';
-import { Passenger } from '../data/passengers';
+import { Passenger } from '../data/passengers.js';
 
 interface PassengerDossierProps {
   passenger: Passenger;

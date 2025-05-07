@@ -1,5 +1,7 @@
 import React, { useState } from 'react';
-import { ChatMessage, ChatService } from '../services/chat';
+import { ChatMessage, ChatService } from '../services/chat.js';
+import { Passenger } from '../data/passengers.js';
+import { sendChatMessage } from '../services/api.js';
 
 interface ChatInterfaceProps {
   chatService: ChatService;

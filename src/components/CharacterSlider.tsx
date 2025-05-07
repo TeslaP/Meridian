@@ -1,6 +1,6 @@
 import React, { useRef, useState } from 'react';
-import { Passenger } from '../data/passengers';
-import { PassengerDossier } from './PassengerDossier';
+import { Passenger } from '../data/passengers.js';
+import { PassengerDossier } from './PassengerDossier.js';
 
 interface CharacterSliderProps {
   passengers: Passenger[];
