@@ -51,8 +51,7 @@ export default defineConfig(({ mode }) => {
         output: {
           format: 'es',
           manualChunks: {
-            vendor: ['react', 'react-dom'],
-            'openai-vendor': ['openai']
+            vendor: ['react', 'react-dom']
           },
           assetFileNames: (assetInfo) => {
             const name = assetInfo.name || '';
@@ -82,11 +81,8 @@ export default defineConfig(({ mode }) => {
       }
     },
     define: {
-      'process.env': {
-        ...env,
-        NODE_ENV: mode,
-        VITE_APP_ENV: mode
-      }
+      'process.env.NODE_ENV': JSON.stringify(mode),
+      'process.env.VITE_APP_ENV': JSON.stringify(mode)
     }
   };
 }); 

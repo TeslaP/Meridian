@@ -1,10 +1,10 @@
 import React, { useState } from 'react';
-import { passengers as initialPassengers } from './data/passengers';
-import { ChatWindow } from './components/ChatWindow';
-import { CharacterSlider } from './components/CharacterSlider';
-import { useAuth } from './contexts/AuthContext';
-import LoginWindow from './components/LoginWindow';
-import { Passenger } from './data/passengers';
+import { passengers as initialPassengers } from './data/passengers.js';
+import { ChatWindow } from './components/ChatWindow.js';
+import { CharacterSlider } from './components/CharacterSlider.js';
+import { useAuth } from './contexts/AuthContext.js';
+import LoginWindow from './components/LoginWindow.js';
+import { Passenger } from './data/passengers.js';
 
 interface Associate {
   name: string;

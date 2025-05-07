@@ -15,7 +15,8 @@
         "includeFiles": ["src/server/**/*"],
         "tsconfig": "tsconfig.api.json",
         "nodeVersion": "22.x",
-        "buildCommand": "npm run build:api"
+        "buildCommand": "npm run build:api",
+        "installCommand": "npm install"
       }
     }
   ],
