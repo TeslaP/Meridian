@@ -9,14 +9,18 @@
     "preview": "vite preview",
     "vercel-build": "npm run build && npm run build:api",
     "build:api": "tsc --project tsconfig.api.json",
-    "server": "ts-node --project tsconfig.server.json src/server/api.ts"
+    "server": "ts-node --project tsconfig.server.json src/server/api.ts",
+    "test:api": "tsx src/server/test-api.ts"
   },
   "dependencies": {
-    "@vercel/node": "^3.0.0",
+    "@babel/runtime": "^7.27.1",
+    "@vercel/node": "^2.15.10",
     "cors": "^2.8.5",
     "dotenv": "^16.5.0",
+    "esbuild": "^0.25.4",
     "express": "^4.21.2",
     "openai": "^4.97.0",
+    "path-to-regexp": "^8.2.0",
     "react": "^18.2.0",
     "react-dom": "^18.2.0"
   },
@@ -28,7 +32,6 @@
     "@types/react-dom": "^18.2.17",
     "@typescript-eslint/eslint-plugin": "^6.14.0",
     "@typescript-eslint/parser": "^6.14.0",
-    "@vercel/static-build": "^1.0.1",
     "@vitejs/plugin-react": "^4.4.1",
     "autoprefixer": "^10.4.17",
     "eslint": "^8.55.0",
@@ -38,7 +41,8 @@
     "tailwindcss": "^3.4.1",
     "terser": "^5.27.0",
     "ts-node": "^10.9.2",
+    "tsx": "^4.19.4",
     "typescript": "^5.8.3",
-    "vite": "^5.0.8"
+    "vite": "^6.3.5"
   }
 }

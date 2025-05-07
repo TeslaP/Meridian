@@ -78,6 +78,7 @@ export async function sendChatMessage(
         'Accept': 'application/json'
       },
       credentials: 'include',
+      mode: 'cors',
       body: JSON.stringify({
         passenger,
         question,
