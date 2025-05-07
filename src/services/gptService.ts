@@ -29,7 +29,7 @@ export interface EmotionalState {
 }
 
 const API_URL = process.env.NODE_ENV === 'production' 
-  ? '/api/chat'  // Use relative URL in production
+  ? 'https://meridian-one.vercel.app/api/chat'  // Use the same domain as frontend
   : 'http://localhost:3001/api/chat'; // Use port 3001 for development
 
 const MAX_RETRIES = 3;

@@ -1,4 +1,4 @@
-import express, { Request, Response, RequestHandler } from 'express';
+import express from 'express';
 import cors from 'cors';
 import OpenAI from 'openai';
 import { config } from './config.js';
@@ -13,20 +13,12 @@ app.use(cors({
   credentials: true
 }));
 
-// Add security headers middleware
+// Add security headers
 app.use((_, res, next) => {
-  res.setHeader(
-    'Content-Security-Policy',
-    "default-src 'self'; " +
-    "script-src 'self' 'unsafe-eval' 'unsafe-inline'; " +
-    "style-src 'self' 'unsafe-inline'; " +
-    "img-src 'self' data: https:; " +
-    "connect-src 'self' http://localhost:3001 https://api.openai.com https://meridian-teslap.vercel.app; " +
-    "frame-ancestors 'none';"
-  );
   res.setHeader('X-Content-Type-Options', 'nosniff');
   res.setHeader('X-Frame-Options', 'DENY');
   res.setHeader('X-XSS-Protection', '1; mode=block');
+  res.setHeader('Content-Security-Policy', "default-src 'self'; script-src 'self' 'unsafe-eval' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; connect-src 'self' http://localhost:3001 https://api.openai.com https://meridian-teslap.vercel.app; frame-ancestors 'none';");
   next();
 });
 
@@ -45,6 +37,14 @@ interface ChatRequest {
     background: string;
     trustLevel: number;
     secrets: string[];
+    artifacts?: Array<{
+      id: string;
+      name: string;
+      description: string;
+      type: string;
+      content: string;
+      discovered: boolean;
+    }>;
   };
   question: string;
   discoveredItems: Array<{
@@ -53,155 +53,91 @@ interface ChatRequest {
     type: string;
     content: string;
   }>;
-  dialogueHistory?: Array<{
+  dialogueHistory: Array<{
     speaker: 'inspector' | 'character';
     text: string;
     timestamp: number;
   }>;
-  emotionalState?: {
-    mood: 'nervous' | 'defensive' | 'cooperative' | 'hostile' | 'neutral';
-    suspicion: number; // 0-100
-    stress: number; // 0-100
+  emotionalState: {
+    mood: string;
+    suspicion: number;
+    stress: number;
   };
 }
 
-const chatHandler: RequestHandler = async (req: Request<{}, {}, ChatRequest>, res: Response): Promise<void> => {
+function generatePrompt(request: ChatRequest): string {
+  const { passenger, question, discoveredItems, dialogueHistory, emotionalState } = request;
+  
+  const prompt = `You are ${passenger.name}, ${passenger.title}. ${passenger.description}
+Background: ${passenger.background}
+Current trust level: ${passenger.trustLevel}
+Emotional state: Mood - ${emotionalState.mood}, Suspicion - ${emotionalState.suspicion}, Stress - ${emotionalState.stress}
+
+Your secrets:
+${passenger.secrets.map(secret => `- ${secret}`).join('\n')}
+
+${discoveredItems.length > 0 ? `The inspector has discovered:
+${discoveredItems.map(item => `- ${item.name}: ${item.description}`).join('\n')}` : ''}
+
+${dialogueHistory.length > 0 ? `Previous conversation:
+${dialogueHistory.map(msg => `${msg.speaker === 'inspector' ? 'Inspector' : passenger.name}: ${msg.text}`).join('\n')}` : ''}
+
+Inspector's question: "${question}"
+
+Respond in character, considering your emotional state and trust level. Include:
+1. A direct response to the question
+2. Any trust level changes (-5 to +5)
+3. Any new revelations about your background or associates that this conversation might reveal
+
+Format your response as JSON:
+{
+  "response": "your in-character response",
+  "trustChange": number,
+  "revelations": {
+    "newAssociates": [{"name": "name", "relationship": "relationship", "details": "details"}],
+    "biographyUpdates": [{"section": "section name", "content": "new information"}]
+  }
+}`;
+
+  return prompt;
+}
+
+async function chatHandler(req: express.Request, res: express.Response, next: express.NextFunction) {
   try {
-    console.log('Received request body:', JSON.stringify(req.body, null, 2));
-    
-    const { passenger, question, discoveredItems, dialogueHistory = [], emotionalState } = req.body;
-
-    // Validate request body
-    if (!passenger?.id || !passenger?.name || !passenger?.title || !passenger?.description || !passenger?.background) {
-      console.log('Invalid passenger data:', passenger);
-      res.status(400).json({
+    // Validate request
+    if (!req.body || typeof req.body !== 'object') {
+      return res.status(400).json({
         error: {
-          code: '400',
-          message: 'Invalid passenger data',
-          details: 'Missing required passenger fields'
+          code: 'INVALID_REQUEST',
+          message: 'Request body is required and must be an object'
         }
       });
-      return;
     }
 
-    if (!question || typeof question !== 'string') {
-      console.log('Invalid question:', question);
-      res.status(400).json({
+    const chatRequest = req.body as ChatRequest;
+
+    // Validate required fields
+    if (!chatRequest.passenger || !chatRequest.question) {
+      return res.status(400).json({
         error: {
-          code: '400',
-          message: 'Invalid question',
-          details: 'Question must be a non-empty string'
+          code: 'MISSING_FIELDS',
+          message: 'Missing required fields: passenger and question are required'
         }
       });
-      return;
     }
 
-    console.log('Processing request for:', {
-      passenger: passenger.name,
-      question,
-      discoveredItemsCount: discoveredItems?.length || 0,
-      dialogueHistoryLength: dialogueHistory.length,
-      emotionalState
-    });
-
-    const jsonSchema = {
-      type: "object",
-      properties: {
-        response: { type: "string" },
-        trustChange: { type: "number", minimum: -10, maximum: 10 },
-        revelations: {
-          type: "object",
-          properties: {
-            newAssociates: {
-              type: "array",
-              items: {
-                type: "object",
-                properties: {
-                  name: { type: "string" },
-                  relationship: { type: "string" },
-                  details: { type: "string" }
-                },
-                required: ["name", "relationship", "details"]
-              }
-            },
-            biographyUpdates: {
-              type: "array",
-              items: {
-                type: "object",
-                properties: {
-                  section: { type: "string", enum: ["background", "description", "secrets"] },
-                  content: { type: "string" }
-                },
-                required: ["section", "content"]
-              }
-            }
-          }
-        }
-      },
-      required: ["response", "trustChange"]
-    };
-
-    const getCharacterPrompt = (passenger: ChatRequest['passenger']) => {
-      return `You are roleplaying as a passenger on the space train Meredian. You are currently being interrogated by an inspector.
-
-Your character:
-- **Name**: ${passenger.name}
-- **Title**: ${passenger.title}
-- **Description**: ${passenger.description}
-- **Background**: ${passenger.background}
-- **Known secrets**: ${passenger.secrets?.join(', ') || 'None revealed yet'}
-- **Trust Level with Inspector**: ${passenger.trustLevel} / 10
-
-Recent events:
-- **Discovered Items**: 
-  ${discoveredItems && discoveredItems.length > 0 
-    ? discoveredItems.map(item => `- ${item.name}: ${item.description}`).join('\n')
-    : 'None'}
-- **Emotional State**: 
-  - Mood: ${emotionalState?.mood || 'Unknown'}
-  - Suspicion: ${emotionalState?.suspicion ?? 'N/A'} / 100
-  - Stress: ${emotionalState?.stress ?? 'N/A'} / 100
-
-Recent dialogue:
-${dialogueHistory && dialogueHistory.length > 0
-  ? dialogueHistory.slice(-5).map(d => 
-      `${d.speaker === 'inspector' ? 'Inspector' : passenger.name}: "${d.text}"`
-    ).join('\n')
-  : 'No dialogue yet'}
-
-Instruction:
-Respond **in character** as ${passenger.name}, using their voice and perspective. Your tone and behavior should reflect your emotional state and current trust level. 
-
-You may:
-- Reveal or withhold information based on trust.
-- Be evasive, aggressive, or vulnerable depending on stress/suspicion.
-- React to the inspector's question authentically.
-
-**Current question from the Inspector**:
-"${question}"
-
-Respond with a single spoken reply as the character (no narration).
-
-Your response must be a valid JSON object that strictly adheres to the following schema:
-${JSON.stringify(jsonSchema, null, 2)}
-
-Do not mention or reference the JSON format, and never break character. When you refer to other characters or reveal additional information, include those details in the "revelations" section of your JSON output.`;
-    };
-
-    const prompt = getCharacterPrompt(passenger);
-
-    console.log('Sending request to OpenAI...');
-    console.log('OpenAI API Key present:', !!config.openaiApiKey);
-    console.log('Using model:', "gpt-4-1106-preview");
-    console.log('Temperature:', config.temperature);
+    // Generate the prompt
+    const prompt = generatePrompt(chatRequest);
+    console.log('Generated prompt:', prompt);
     console.log('Max tokens:', config.maxTokens);
 
+    // Call OpenAI API
     const completion = await openai.chat.completions.create({
       model: "gpt-4-1106-preview",
       messages: [
         {
           role: "system",
-          content: `You are a character in *Meredian*, a dystopian, retro-futuristic interrogation game set aboard a mysterious inspection train in a decaying, post-war empire. Respond solely as your character, using natural language that reflects your background and personality in this atmosphere. Format your answer as a valid JSON object per the provided schema, but do not mention that you are using JSON. Always stay in character, and when divulging details about other characters or secrets, include them in the "revelations" section.`
+          content: "You are a character in an interrogation game. Respond in character based on the provided context."
         },
         {
           role: "user",
@@ -222,8 +158,16 @@ Do not mention or reference the JSON format, and never break character. When you
     const response = completion.choices[0].message.content;
     
     if (!response) {
-      console.error('No response content from OpenAI');
-      throw new Error('No response from OpenAI');
+      throw new Error('No response content from OpenAI');
+    }
+
+    // Parse and validate the response
+    let parsedResponse;
+    try {
+      parsedResponse = JSON.parse(response);
+    } catch (error) {
+      console.error('Failed to parse OpenAI response:', error);
+      throw new Error('Invalid response format from OpenAI');
     }
 
     // Check if response was truncated
@@ -231,85 +175,47 @@ Do not mention or reference the JSON format, and never break character. When you
       console.warn('Response was truncated due to length limit');
     }
 
-    let parsedResponse;
-    try {
-      parsedResponse = JSON.parse(response);
-      console.log('Successfully parsed OpenAI response');
-    } catch (error) {
-      console.error('Failed to parse OpenAI response:', error);
-      console.error('Raw response:', response);
-      throw new Error('Invalid response format from OpenAI');
-    }
-
-    // Validate response structure
-    if (!parsedResponse.response || typeof parsedResponse.trustChange !== 'number') {
-      console.error('Invalid response structure:', parsedResponse);
-      throw new Error('Invalid response structure from OpenAI');
-    }
-
-    // Ensure trust change is within bounds
-    parsedResponse.trustChange = Math.max(-10, Math.min(10, parsedResponse.trustChange));
-
-    console.log('Sending successful response to client');
-    res.status(200).json(parsedResponse);
+    res.json(parsedResponse);
   } catch (error) {
-    console.error('Error processing request:', error);
-    
-    // Log detailed error information
-    if (error instanceof Error) {
-      console.error('Error details:', {
-        name: error.name,
-        message: error.message,
-        stack: error.stack
-      });
-    }
+    console.error('Error in chat handler:', error);
 
     // Check for OpenAI API errors
     if (error instanceof OpenAI.APIError) {
       console.error('OpenAI API Error:', {
         status: error.status,
+        message: error.message,
         code: error.code,
-        message: error.message
+        type: error.type
       });
-      res.status(500).json({
+
+      return res.status(error.status || 500).json({
         error: {
-          code: '500',
-          message: 'OpenAI API error',
-          details: error.message
+          code: error.code || 'OPENAI_ERROR',
+          message: error.message
         }
       });
-      return;
     }
 
     // Handle other errors
+    const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred';
     res.status(500).json({
       error: {
-        code: '500',
-        message: error instanceof Error ? error.message : 'A server error has occurred',
-        details: config.nodeEnv === 'development' ? 
-          (error instanceof Error ? error.stack : undefined) : 
-          undefined
+        code: 'INTERNAL_ERROR',
+        message: errorMessage
       }
     });
   }
-};
+}
 
+// Handle OPTIONS requests
+app.options('/api/chat', (_, res) => {
+  res.status(204).end();
+});
+
+// Handle POST requests
 app.post('/api/chat', chatHandler);
 
-// Export the handler for Vercel
-export default async function handler(req: Request, res: Response) {
-  if (req.method === 'OPTIONS') {
-    res.status(200).end();
-    return;
-  }
-  
-  if (req.method !== 'POST') {
-    res.status(405).json({ error: 'Method not allowed' });
-    return;
-  }
-
-  return chatHandler(req, res, () => {});
-}
+export default app;
 
 // Keep the Express app for local development
 if (process.env.NODE_ENV !== 'production') {

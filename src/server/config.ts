@@ -1,16 +1,14 @@
 import dotenv from 'dotenv';
-import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
+const __dirname = process.cwd();
 
 // Try different paths for .env file
 const envPaths = [
-  join(__dirname, '..', '..', '.env'),
-  join(__dirname, '..', '..', '.env.local'),
   join(__dirname, '.env'),
-  join(__dirname, '.env.local')
+  join(__dirname, '.env.local'),
+  join(__dirname, 'src', 'server', '.env'),
+  join(__dirname, 'src', 'server', '.env.local')
 ];
 
 let envLoaded = false;
