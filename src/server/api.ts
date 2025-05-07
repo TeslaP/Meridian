@@ -106,128 +106,149 @@ Format your response as JSON:
   return prompt;
 }
 
-async function chatHandler(req: express.Request, res: express.Response): Promise<void> {
+async function processChatRequest(request: {
+  passenger: any;
+  question: string;
+  discoveredItems: any[];
+  dialogueHistory: any[];
+  emotionalState: { mood: string; suspicion: number; stress: number };
+}) {
+  // Generate the prompt
+  const prompt = generatePrompt(request as ChatRequest);
+  console.log('Generated prompt:', prompt);
+  console.log('Max tokens:', config.maxTokens);
+
+  // Call OpenAI API
+  const completion = await openai.chat.completions.create({
+    model: "gpt-4-1106-preview",
+    messages: [
+      {
+        role: "system",
+        content: "You are a character in an interrogation game. Respond in character based on the provided context."
+      },
+      {
+        role: "user",
+        content: prompt
+      }
+    ],
+    temperature: config.temperature,
+    max_tokens: config.maxTokens,
+    response_format: { type: "json_object" }
+  });
+
+  console.log('OpenAI response received:', {
+    finish_reason: completion.choices[0].finish_reason,
+    usage: completion.usage,
+    has_content: !!completion.choices[0].message.content
+  });
+
+  const response = completion.choices[0].message.content;
+  
+  if (!response) {
+    throw new Error('No response content from OpenAI');
+  }
+
+  // Parse and validate the response
+  let parsedResponse;
   try {
-    // Validate request
-    if (!req.body || typeof req.body !== 'object') {
-      res.status(400).json({
-        error: {
-          code: 'INVALID_REQUEST',
-          message: 'Request body is required and must be an object'
-        }
-      });
+    parsedResponse = JSON.parse(response);
+  } catch (error) {
+    console.error('Failed to parse OpenAI response:', error);
+    throw new Error('Invalid response format from OpenAI');
+  }
+
+  // Check if response was truncated
+  if (completion.choices[0].finish_reason === "length") {
+    console.warn('Response was truncated due to length limit');
+  }
+
+  return parsedResponse;
+}
+
+async function chatHandler(req: express.Request, res: express.Response): Promise<void> {
+  console.log('API handler called:', {
+    method: req.method,
+    url: req.url,
+    headers: req.headers,
+    body: req.body
+  });
+
+  try {
+    // Handle CORS preflight
+    if (req.method === 'OPTIONS') {
+      console.log('Handling OPTIONS request');
+      res.setHeader('Access-Control-Allow-Credentials', 'true');
+      res.setHeader('Access-Control-Allow-Origin', '*');
+      res.setHeader('Access-Control-Allow-Methods', 'GET,POST');
+      res.setHeader('Access-Control-Allow-Headers', 'Content-Type,Authorization');
+      res.status(204).end();
       return;
     }
 
-    const chatRequest = req.body as ChatRequest;
+    // Only allow POST requests
+    if (req.method !== 'POST') {
+      console.log('Invalid method:', req.method);
+      res.setHeader('Allow', ['POST']);
+      res.status(405).json({ error: 'Method not allowed' });
+      return;
+    }
+
+    // Validate request body
+    if (!req.body) {
+      console.log('Missing request body');
+      res.status(400).json({ error: 'Missing request body' });
+      return;
+    }
+
+    const { passenger, question, discoveredItems, dialogueHistory, emotionalState } = req.body;
 
     // Validate required fields
-    if (!chatRequest.passenger || !chatRequest.question) {
-      res.status(400).json({
-        error: {
-          code: 'MISSING_FIELDS',
-          message: 'Missing required fields: passenger and question are required'
-        }
-      });
+    if (!passenger || !question) {
+      console.log('Missing required fields:', { passenger, question });
+      res.status(400).json({ error: 'Missing required fields' });
       return;
     }
 
-    // Generate the prompt
-    const prompt = generatePrompt(chatRequest);
-    console.log('Generated prompt:', prompt);
-    console.log('Max tokens:', config.maxTokens);
-
-    // Call OpenAI API
-    const completion = await openai.chat.completions.create({
-      model: "gpt-4-1106-preview",
-      messages: [
-        {
-          role: "system",
-          content: "You are a character in an interrogation game. Respond in character based on the provided context."
-        },
-        {
-          role: "user",
-          content: prompt
-        }
-      ],
-      temperature: config.temperature,
-      max_tokens: config.maxTokens,
-      response_format: { type: "json_object" }
+    console.log('Processing chat request:', {
+      passengerId: passenger.id,
+      question,
+      discoveredItemsCount: discoveredItems?.length,
+      dialogueHistoryCount: dialogueHistory?.length
     });
 
-    console.log('OpenAI response received:', {
-      finish_reason: completion.choices[0].finish_reason,
-      usage: completion.usage,
-      has_content: !!completion.choices[0].message.content
+    // Process the chat request
+    const response = await processChatRequest({
+      passenger,
+      question,
+      discoveredItems: discoveredItems || [],
+      dialogueHistory: dialogueHistory || [],
+      emotionalState: emotionalState || { mood: 'neutral', suspicion: 0, stress: 0 }
     });
 
-    const response = completion.choices[0].message.content;
-    
-    if (!response) {
-      throw new Error('No response content from OpenAI');
-    }
+    console.log('Chat response generated:', {
+      responseLength: response.response.length,
+      trustChange: response.trustChange,
+      revelationsCount: response.revelations.biographyUpdates.length
+    });
 
-    // Parse and validate the response
-    let parsedResponse;
-    try {
-      parsedResponse = JSON.parse(response);
-    } catch (error) {
-      console.error('Failed to parse OpenAI response:', error);
-      throw new Error('Invalid response format from OpenAI');
-    }
+    // Set CORS headers for the response
+    res.setHeader('Access-Control-Allow-Credentials', 'true');
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Content-Type', 'application/json');
 
-    // Check if response was truncated
-    if (completion.choices[0].finish_reason === "length") {
-      console.warn('Response was truncated due to length limit');
-    }
-
-    res.json(parsedResponse);
+    // Send the response
+    res.status(200).json(response);
   } catch (error) {
-    console.error('Error in chat handler:', error);
-
-    // Check for OpenAI API errors
-    if (error instanceof OpenAI.APIError) {
-      console.error('OpenAI API Error:', {
-        status: error.status,
-        message: error.message,
-        code: error.code,
-        type: error.type
-      });
-
-      res.status(error.status || 500).json({
-        error: {
-          code: error.code || 'OPENAI_ERROR',
-          message: error.message
-        }
-      });
-      return;
-    }
-
-    // Handle other errors
-    const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred';
-    res.status(500).json({
-      error: {
-        code: 'INTERNAL_ERROR',
-        message: errorMessage
-      }
+    console.error('Error processing request:', error);
+    res.status(500).json({ 
+      error: 'Internal server error',
+      details: error instanceof Error ? error.message : 'Unknown error'
     });
   }
 }
 
 // Export the handler for Vercel
-export default async function handler(req: express.Request, res: express.Response): Promise<void> {
-  if (req.method === 'OPTIONS') {
-    res.status(204).end();
-    return;
-  }
-  
-  if (req.method !== 'POST') {
-    res.status(405).json({ error: 'Method not allowed' });
-    return;
-  }
-
-  await chatHandler(req, res);
-}
+export default chatHandler;
 
 // Keep the Express app for local development
 if (process.env.NODE_ENV !== 'production') {
